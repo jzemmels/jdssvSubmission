@@ -1,0 +1,560 @@
+\documentclass[
+]{jdssv}
+
+%% recommended packages
+\usepackage{orcidlink,thumbpdf,lmodern}
+
+\usepackage[utf8]{inputenc}
+
+\author{
+Joseph Zemmels\\Iowa State University \And Susan VanderPlas\\University
+of Nebraska - Lincoln \And Heike Hofmann\\Iowa State University
+}
+\title{Automatic Matching of Cartridge Case Impressions}
+
+\Plainauthor{Joseph Zemmels, Susan VanderPlas, Heike Hofmann}
+\Plaintitle{Automatic Matching of Cartridge Case Impressions}
+\Shorttitle{Automatic Matching of Cartridge Case Impressions}
+
+
+\Abstract{
+Forensic examinations attempt to solve the binary classification problem
+of whether two pieces of evidence originated from the same source. A
+cartridge case found at a crime scene may be compared to a cartridge
+case fired from a suspect's firearm. Historically, forensic examiners
+relied on high-powered comparison microscopes, case facts, and their own
+experience to arrive at a source conclusion. Recently, algorithms that
+provide an automatic and objective measure of similarity of the evidence
+have become more prevalent. We introduce a cartridge case comparison
+algorithm that encompasseses preprocessing, feature extraction, and
+similarity scoring. We use a train/test split on a data set of 500
+cartridge case scans to fit and validate a random forest model. We
+demonstrate that this random forest model yields improved accuracy
+compared to predominant algorithms. Finally, we use the random forest
+model to calculate score-based likelihood ratios that estimate the
+probative value of the evidence.
+}
+
+\Keywords{forensics, forensic statistics, pattern recognition, firearms
+and toolmarks, \proglang{R}}
+\Plainkeywords{forensics, forensic statistics, pattern
+recognition, firearms and toolmarks, R}
+
+%% publication information
+%% \Volume{50}
+%% \Issue{9}
+%% \Month{June}
+%% \Year{2012}
+%% \Submitdate{}
+%% \Acceptdate{2012-06-04}
+
+\Address{
+    Joseph Zemmels\\
+    Iowa State University\\
+    Center for Statistics and Applications in Forensic Evidence\\
+Iowa State University\\
+195 Durham Center\\
+613 Morrill Road\\
+Ames, IA 50011\\
+  E-mail: \email{jzemmels@iastate.edu}\\
+  URL: \url{https::/jzemmels.github.io}\\~\\
+      Susan VanderPlas\\
+    University of Nebraska - Lincoln\\
+    Department of Statistics\\
+University of Nebraska - Lincoln\\
+349A Hardin Hall\\
+3310 Holdrege St\\
+Lincoln, NE 68588\\
+  E-mail: \email{susan.vanderplas@unl.edu}\\
+  URL: \url{https://srvanderplas.netlify.app/}\\~\\
+      Heike Hofmann\\
+    Iowa State University\\
+    Center for Statistics and Applications in Forensic Evidence\\
+Iowa State University\\
+195 Durham Center\\
+613 Morrill Road\\
+Ames, IA 50011\\
+  E-mail: \email{heike@iastate.edu}\\
+  URL: \url{https://github.com/heike}\\~\\
+  }
+
+
+% tightlist command for lists without linebreak
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+
+\usepackage{amsmath} \usepackage{amsfonts} \usepackage{longtable} \usepackage{booktabs} \newcommand{\class}[1]{`\code{#1}'} \newcommand{\fct}[1]{\code{#1()}} \newcommand{\ma}[1]{\ensuremath{\mathbf{#1}}} \usepackage[]{algorithm2e} \interfootnotelinepenalty=10000
+
+\begin{document}
+
+
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+Introduce the problem here. Explain what a cartridge case is. Explain
+breech face impressions.
+
+The ``ground-truth'' of a forensic comparison is a binary classification
+problem. Briefly reference how comparisons are done by examiners
+currently. Keep focus on firearm and toolmark evidence.
+
+Critics of traditional firearm and toolmark comparisons cite a lack of
+foundational validity (NAS 2009, PCAST 2016). Discuss what PCAST means
+by foundational validity and how firearm and toolmark evidence falls
+short according to NAS \& PCAST. Recent studies of examiner proficiency
+estimate error rates to be low - between \% and \% according to
+{[}Baldwin{]}. Nonetheless, {[}NAS{]} and {[}PCAST{]} pushed for the
+development of ``objective image processing algorithms to\ldots.{[}quote
+PCAST here\ldots{]}.'' An automatic comparison algorithm could be used
+as part of an examination to supplement or inform an examiner's opinion
+{[}cite Swofford taxonomy paper here{]}.
+
+\hypertarget{previous-work}{%
+\section{Previous Work}\label{previous-work}}
+
+Discuss current state of affairs for algorithmic F\&T comparisons.
+
+Cite Hare et al.~as a parallel paper to this one applied to bullet data.
+
+Cite Xiao Hui's project.
+
+Cite CMC method as predominant method. Broadly summarize cell-based
+comparison procedure and CMC method logic. Also reference Zhang et
+al.~(2020) DBSCAN paper here.
+
+Discuss limitations of current cartridge case comparison algorithms.
+Currently, there is no rigorous procedure for comparing different
+algorithms. This includes selecting optimal parameters for a specific
+algorithm. In this work, we introduce a novel validation procedure to
+learn and validate optimal parameters using a cross-validation
+procedure.
+
+We introduce a novel set of features to measure the similarity between
+two cartridge cases. using these features, we train and test a random
+forest model. We show that this random forest model improves upon the
+error rate of predominant automatic comparison algorithms. Additionally,
+we demonstrate how the random forest model can be used to calculate
+score-based likelihood ratios.
+
+\hypertarget{cartridge-case-data}{%
+\section{Cartridge Case Data}\label{cartridge-case-data}}
+
+Discuss Baldwin study here. Point out that it was the only
+appropriately-designed study according to PCAST. Types of cartridge
+cases, firearms. Design of the experiment (known and questioned
+samples).
+
+Details of scanning procedure using Cadre 3D-TopMatch High Capacity
+Scanner. Describe x3p file format and surface matrices.
+
+\hypertarget{methods}{%
+\section{Methods}\label{methods}}
+
+Include table(s) of calculated features (one for each ``type'' of
+feature?)
+
+\hypertarget{preprocessing}{%
+\subsection{Preprocessing}\label{preprocessing}}
+
+We first use the open-source FiX3P web application to manually annotate
+the breech face impression region. An example of a manually-annotated
+cartridge case scan is shown in {[}Figure{]}. The FiX3P software
+includes functionality to ``paint'' the surface of a cartridge case and
+save the painted regions to a \emph{mask.} A mask is a 2D array of
+hexidecimal color values of the same dimension as its associated surface
+matrix. When initialized, every element of a mask is a shade of brown
+(``\#cd7f32'') by default. Any elements that have been painted-over by
+the user will be replaced with the user's selected color value. In
+{[}Figure{]}, the breech face impression region was manually annotated
+using a shade of {[}red?{]} (``\#colorValue'').
+
+Once read into an R environment, we use sequence of functions available
+in the {[}x3ptools{]} and {[}cmcR{]} packages to preprocess the raw
+scans. {[}Code{]} demonstrates how the {[}magrittr{]} pipe
+(\texttt{\%\textgreater{}\%}) operator strings together these functions.
+{[}Figure{]} shows the effect that each function has on the scan surface
+values. The \texttt{x3p\_delete} function removes (i.e., replaces with
+\texttt{NA}) values in the scan based on the associated mask. {[}The
+other functions do xyz{]}. The final result is a cartridge case surface
+matrix with emphasized breech face impressions.
+
+Next, we compute a set of similarity features for two preprocessed
+cartridge case scans.
+
+\hypertarget{feature-extraction}{%
+\subsection{Feature Extraction}\label{feature-extraction}}
+
+In this section, we introduce a set of similarity features for two
+cartridge case scans. We calculate features at two scales: between two
+whole scans and between individual cells similar to the CMC method
+{[}cite{]}. Analogous to how a forensic examiner uses a comparison
+microscope with different magnification levels, this allows us to assess
+the similarity between two scans at the macro and micro levels.
+
+First, we introduce notation that will be used to define the features.
+Let \(A\) and \(B\) denote two surfaces matrices that we wish to compare
+of dimension \(P \times Q\) and \(M \times N\), respectively. We use
+bracket indexing to denote a particular value of a matrix: \(A[i,j]\) is
+the value in the \(i\)th row and \(j\)th column, starting from the
+top-left corner, of matrix \(A\).
+
+\hypertarget{registration-estimation}{%
+\subsubsection{Registration Estimation}\label{registration-estimation}}
+
+A critical step in comparing \(A\) and \(B\) is to find a transformation
+of \(B\) such that it aligns best to \(A\) (or vice versa). In image
+processing, this process is called \emph{image registration.} Noting
+that \(A\) and \(B\) are essentially grayscale images, we rely on a
+standard image registration technique {[}cite Brown, 1992{]}.
+
+In our application, this transformation is composed of a discrete
+translation by \((m,n) \in \mathbb{Z}^2\) and rotation by
+\(\theta \in [-180^\circ,180^\circ]\). Under this transformation, the
+index \([i,j]\) maps to a new index \([i^*,j^*]\) by: \begin{align*}
+\begin{pmatrix} j^* \\ i^* \end{pmatrix} =
+\begin{pmatrix} n \\ m \end{pmatrix} +
+\begin{pmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{pmatrix} \begin{pmatrix} j \\ i \end{pmatrix}.
+\end{align*}
+
+The value that once occupied element \(B[i,j]\) now occupies
+\(B[i^*,j^*]\). In practice, we use \emph{nearest-neighbor
+interpolation} meaning \(i^*\) and \(j^*\) are rounded to the nearest
+integer {[}cite a nearest-neighbor
+reference{]}.\footnote{Technical note: We pad the dimensions of matrix $B$ as-needed assuming free boundary conditions (0-padding) so as to not crop-out any of the original values [cite a boundary condition reference here]. For notational simplicity, we'll refer to this padded matrix as $B$ also.}
+
+To determine the optimal registration, we calculate the
+\emph{cross-correlation function} (CCF) between \(A\) and \(B\). The CCF
+measures the similarity between \(A\) and \(B\) for every possible
+translation of \(B\): \begin{align*}
+(A \star B)[m,n] = \sum_{i=1}^M \sum_{j=1}^N A[i,j] B[i + m, j + n]
+\end{align*} where \(1 \leq m \leq M + P - 1\) and
+\(1 \leq n \leq N + Q - 1\). \(A \star B\) is a 2D array of dimension
+\(M + P - 1 \times N + Q - 1\) where \((A \star B)[m,n]\) quantifies the
+similarity between \(A\) and \(B\) after \(B\) is translated \(m\)
+elements horizontally and \(n\) elements vertically. The CCF is often
+normalized between -1 and 1 for interpretability.
+
+For large matrices, the above definition of the CCF is computationally
+taxing. The Cross-Correlation Theorem provides an equivalent expression
+for the CCF: \begin{align*}
+(A \star B)[m,n] = \mathcal{F}^{-1}\left(\overline{\mathcal{F}(A)} \odot \mathcal{F}(B)\right)[m,n]
+\end{align*} where \(\mathcal{F}\) and \(\mathcal{F}^{-1}\) are the
+discrete Fourier and inverse discrete Fourier transforms, respectively,
+\(\overline{\mathcal{F}(A)}\) is the complex conjugate, and \(\odot\) is
+an element-wise (Hadamard) product {[}cite Brigham, 1988{]}. We trade
+the moving sum computation from the previous CCF expression for two
+forward Fourier transforms, an element-wise product, and an inverse
+Fourier transform. The Fast Fourier Transform (FFT) algorithm reduces
+the computational load considerably {[}cite Tukey{]}.
+
+Using the CCF as a similarity measure, we estimate the registration by
+calculating the maximum CCF value across a range of rotations of matrix
+\(B\). Let \(B_\theta\) denote \(B\) rotated by an angle
+\(\theta \in [-180^\circ,180^\circ]\). Then the estimated registration
+\((m^*,n^*,\theta^*)\) is: \begin{align*}
+(m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (A \star B_\theta)[m,n].
+\end{align*} In practice we consider a discrete grid of rotations
+\(\pmb{\Theta} \subset [-180^\circ,180^\circ]\). The registration
+procedure is outlined in \autoref{alg:registration}.
+
+\begin{algorithm}[htbp]
+ \KwData{Matrices $A$, $B$ and rotation grid $\pmb{\Theta}$}
+ \KwResult{Estimated registration of $B$ to $A$, $(m^*,n^*,\theta^*)$, and cross-correlation function maximum, $CCF_{\max}$}
+ \For{$\theta \in \pmb{\Theta}$}{
+  Rotate $B$ by $\theta$ to obtain $B_\theta$\;
+  Calculate $CCF_{\max, \theta} = \max_{m,n} (A \star B_\theta)[m,n]$\;
+  Calculate translation $[m^*_\theta,n^*_\theta] = \arg \max_{m,n} (A \star B_\theta)[m,n]$
+ }
+ Calculate overall maximum correlation $CCF_{\max} = \max_{\theta} \{CCF_{\max,\theta} : \theta \in \pmb{\Theta}\}$\;
+ Calculate rotation $\theta^* = \arg \max_{\theta} \{CCF_{\max,\theta} : \theta \in \pmb{\Theta}\}$\;
+ \Return{Estimated rotation $\theta^*$, translation $m^* = m^*_{\theta^*}$ and $n^* = n^*_{\theta^*}$, and $CCF_{\max}$}
+ \caption{Image Registration Procedure}
+ \label{alg:registration}
+\end{algorithm}
+
+The overall maximum CCF, \(CCF_{\max}\), is a similarity measure between
+\(A\) and \(B\).
+
+\hypertarget{handling-missingness}{%
+\subsubsection{Handling Missingness}\label{handling-missingness}}
+
+{[}Not sure what to do with this section. It needs to be mentioned, but
+in more or less detail?{]}
+
+The registration estimation procedure outline above, namely the Fast
+Fourier Transform algorithm, does not permit missing values in \(A\) or
+\(B\). It is common for cartridge case scans to contain many missing
+values - the gray regions in {[}preprocessing Figure{]} represent
+structural values in the scan. Thus, when calculating the CCF we impute
+these missing values with the average non-missing value in the scan.
+
+We wish to measure the similarity between \(A\) and \(B\) while taking
+this missingness into account; to measure the similarity between the
+non-missing intersection of the aligned scans. We compute the
+\emph{pairwise-complete correlation} using only the complete value
+pairs, meaning neither value is missing, between \(A\) and \(B\).
+
+\hypertarget{whole-scan-comparison}{%
+\subsubsection{Whole-Scan Comparison}\label{whole-scan-comparison}}
+
+We first estimate the registration between two full scans \(A\) and
+\(B\) using \autoref{alg:registration} with a rotation grid
+\(\pmb{\Theta} = \{-30^\circ, -27^\circ,...,27^\circ,30^\circ\}\). This
+results in an estimated registration \((m^*,n^*,\theta^*)\) and
+similarity measure \(CCF_{\max}\). We then apply the registration
+transformation \((m^*,n^*,\theta^*)\) to \(B\) to obtain \(B^*\) and
+compute the pairwise-complete correlation, \(cor_{\text{comp}}\),
+between \(A\) and \(B^*\).
+
+From this whole-scan comparison procedure we obtain two features
+summarized in \autoref{tab:wholeScanComparison}.
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
+    \hline
+        \textbf{Notation} & \textbf{Feature Description} \\
+        \hline
+        $CCF_{\max}$ & Maximum value of the cross-correlation function across a grid of rotations \\
+        \hline
+        $cor_{\text{comp}}$ & Pairwise-complete correlation between two aligned scans \\
+        \hline
+    \end{tabular}
+    \caption{Two similarity features based on estimating the registration of two whole scans.}
+    \label{tab:wholeScanComparison}
+\end{table}
+
+\hypertarget{cell-based-comparison}{%
+\subsubsection{Cell-Based Comparison}\label{cell-based-comparison}}
+
+Following the comparison of \(A\) and \(B^*\), we next perform a
+cell-based comparison procedure. Song (2013) points out that breech face
+impressions rarely appear uniformly on a cartridge case surface. Rather,
+distinguishing markings appear in specific, usually small, regions of a
+scan (the author refers to these as \emph{valid correlation regions}).
+Calculating a correlation between two whole scans does not necessarily
+capture the similarity between these regions. Song (2013) proposes
+partitioning a scan into a rectangular grid of ``cells'' to isolate the
+valid correlation regions. {[}Figure{]} shows an example of a cartridge
+case scan partitioned into a grid of 8x8 cells.
+
+The cell-based comparison procedure begins with selecting one of the
+matrices, say \(A\), as the ``reference'' matrix to be partitioned into
+a grid of cells. Each of these reference cells will be compared to the
+``target'' matrix, in this case \(B^*\). Because \(A\) and \(B^*\) are
+already partially aligned based on the course rotation grid
+\(\pmb{\Theta}\), we compare each reference cell to \(B^*\) using a new
+rotation grid of
+\(\pmb{\Theta}' = \{\theta^* - 2^\circ, \theta^* - 1^\circ,\theta^*,\theta^* + 1^\circ,\theta^* + 2^\circ\}\).
+
+We now extend the surface matrix notation introduced previously to
+accommodate cells. Let \(A_{i}\) denote the \(i\)th cell of matrix
+\(A\), \(i = 1,...,T\) where \(T\) is the total number of cells
+containing non-missing values (e.g., in {[}Figure{]},
+\(T = 39\)).\footnote{In practice, we number the cells in lexicographic order (left-to-right, top-to-bottom) starting from the top-left.}
+
+The cell-based comparison procedure is outlined in
+\autoref{alg:cellComparison}.
+
+\begin{algorithm}[H]
+ \KwData{Reference matrix $A$, target matrix $B^*$, $R \times C$ grid size, and rotation grid $\pmb{\Theta}'$}
+ \KwResult{Estimated translations and $CCF_{\max}$ values per cell, per rotation}
+ Partition $A$ into a grid of $R \times C$ cells\;
+ Discard cells containing only missing values, leaving $T$ remaining cells\;
+ \For{$\theta \in \pmb{\Theta}'$}{
+  Rotate $B^*$ by $\theta$ to obtain $B^*_\theta$\;
+  \For{$i = 1,...,T$}{
+  Calculate $CCF_{\max, \theta, i} = \max_{m,n} (A_i \star B^*_\theta)[m,n]$\;
+  Calculate translation $[m^*_{\theta,i},n^*_{\theta,i}] = \arg \max_{m,n} (A_i \star B^*_\theta)[m,n]$
+}
+ }
+ \Return{$\{(m^*_{\theta,i},n^*_{\theta,i}, CCF_{\max,\theta,i}, \theta) : \theta \in \pmb{\Theta}', i = 1,...,T\}$}
+ \caption{Cell-Based Comparison Procedure}
+ \label{alg:cellComparison}
+\end{algorithm}
+
+Rather than exclusively returning the registration that maximizes the
+overall CCF as in \autoref{alg:registration},
+\autoref{alg:cellComparison} returns the translations and CCF values for
+each cell and each rotation considered. The following assumption
+justifies this: if two cartridge cases are truly matching, then we
+assume that multiple cells will ``agree'' on a particular translation
+value at the true
+rotation.\footnote{And that cells will not come to such an agreement for a non-matching pair of cartridge cases}
+This agreement phenomenon is illustrated in {[}Figure{]} where each
+point represents the translation that maximizes the CCF for a particular
+cell and rotation. The points appear randomly distributed for most of
+the rotation values except for \(\theta = \#\) where a tight cluster of
+points forms around translation \([\#,\#]\). This is evidence to suggest
+that a true registration exists for these two cartridge cases, implying
+that they match. The task is to determine when cells reach a
+registration consensus.
+
+Just as with the whole-scan comparison, we calculate the
+pairwise-complete correlation between each cell \(A_i\) and a matrix of
+the same size extracted from \(B^*_{\theta}\) after translating by
+\([m^*_\theta,n^*_\theta]\). From this we obtain a set of
+pairwise-complete correlations for each rotation:
+\(\{cor_{\text{comp},\theta,i} : \theta \in \pmb{\Theta}'\}\). For
+\(i = 1,...,T\), define the cell-wise maximum CCF and pairwise-complete
+correlation as: \begin{align*}
+CCF_{\max,i} &= \max_{\theta} \{CCF_{\max,\theta,i} : \theta \in \pmb{\Theta}'\} \\
+cor_{\text{comp},i} &= \max_{\theta} \{cor_{\text{comp},\theta,i} : \theta \in \pmb{\Theta}'\}
+\end{align*} We compute the following features using the correlation
+data: \begin{align*}
+\overline{CCF}_{\max, \cdot} &= \frac{1}{T} \sum_{i=1}^T CCF_{\max,i} \\
+\overline{cor}_{\text{comp}, \cdot} &= \frac{1}{T} \sum_{i=1}^T cor_{\text{comp},i} \\
+s_{CCF}^2 &= \frac{1}{T-1} \sum_{i=1}^T (CCF_{\max,i} - \overline{CCF}_{\max, \cdot})^2  \\
+s_{cor}^2 &= \frac{1}{T-1} \sum_{i=1}^T (cor_{\text{comp},i} - \overline{cor}_{\text{comp}, \cdot})^2  \\
+\end{align*} We expect \(\overline{CCF}_{\max, \cdot}\),
+\(\overline{cor}_{\text{comp}, \cdot}\) to be large and \(s_{CCF}^2\),
+\(s_{cor}^2\) small.
+
+For \(i = 1,...,T\), define the estimated translations and rotation for
+\(A_i\) as: \begin{align*}
+\theta^*_i &= \arg \max_{\theta} \{CCF_{\max,\theta,i} : \theta \in \pmb{\Theta}'\} \\
+m^*_i &= m^*_{\theta^*_i,i} \\
+n^*_i &= n^*_{\theta^*_i,i}
+\end{align*} We compute the following features using the estimated cell
+translations and rotations: \begin{align*}
+s_{m^*}^2 = \frac{1}{T-1} \sum_{i=1}^T (m^*_{i} - \bar{m}^*_{\cdot})^2 \\
+s_{n^*}^2 = \frac{1}{T-1} \sum_{i=1}^T (n^*_{i} - \bar{n}^*_{\cdot})^2 \\
+s_{\theta^*}^2 = \frac{1}{T-1} \sum_{i=1}^T (\theta^*_{i} - \bar{\theta}^*_{\cdot})^2
+\end{align*} where
+\(\bar{m}^*_{\cdot} = \frac{1}{T} \sum_{i=1}^T m^*_{i}\),
+\(\bar{n}^*_{\cdot} = \frac{1}{T} \sum_{i=1}^T n^*_{i}\), and
+\(\bar{\theta}^*_{\cdot} = \frac{1}{T} \sum_{i=1}^T \theta^*_{i}\). We
+expect \(s_{m^*}^2, s_{n^*}^2, s_{\theta^*}^2\) to be small for truly
+matching cartridge case pairs.
+
+From this cell-based comparison procedure, we obtain seven features
+summarized in \autoref{tab:cellBasedComparison}.
+
+\begin{table}[htbp]
+    \centering
+    \begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
+    \hline
+        \textbf{Notation} & \textbf{Feature Description} \\
+        \hline
+        $\overline{CCF}_{\max, \cdot}$ & Average maximum value of the cross-correlation function across all cells and rotations \\
+        \hline
+        $\overline{cor}_{\text{comp}, \cdot}$ & Average pairwise-complete correlation between each reference cell and its paired region in the target matrix at which the CCF is maximized \\
+        \hline
+        $s_{CCF}^2$ & Sample variance of the maximum CCF values across all cells \\
+        \hline
+        $s_{cor}^2$ & Sample variance of the pairwise-complete correlation values between each reference cell and its paired region in the target matrix at which the CCF is maximized \\
+        \hline
+        $s_{m^*}^2$ & Sample variance of the estimated vertical (row) translations across all cells \\
+        \hline
+        $s_{n^*}^2$ & Sample variance of the estimated horizontal (column) translations across all cells \\
+        \hline
+        $s_{\theta^*}^2$ & Sample variance of the estimated rotations across all cells \\
+        \hline
+    \end{tabular}
+    \caption{Seven similarity features based on partitioning a reference scan into a grid of cells and comparing each cell to a target scan.}
+    \label{tab:cellBasedComparison}
+\end{table}
+
+\hypertarget{density-based-spatial-clustering-of-applications-with-noise}{%
+\subsubsection{Density-Based Spatial Clustering of Applications with
+Noise}\label{density-based-spatial-clustering-of-applications-with-noise}}
+
+average cluster size, estimated rotation difference, estimated
+translation difference
+
+\hypertarget{visual-diagnostic-features}{%
+\subsubsection{Visual Diagnostic
+Features}\label{visual-diagnostic-features}}
+
+average blob size, blob size sd
+
+\hypertarget{similarity-scoring}{%
+\subsection{Similarity Scoring}\label{similarity-scoring}}
+
+We randomly split the data set into \# barrels for training and \#\#
+barrels for testing. In our case, this resulted in a training data set
+of 200 cartridge cases, \(\binom{200}{2} = 21,945\) pairwise
+comparisons, and a testing set of 300 cartridge cases,
+\(\binom{300}{2} = 44,850\) pairwise comparisons.
+
+Describe 10-fold(?) cross-validation procedure here. Cite caret package.
+
+\hypertarget{score-based-likelihood-ratios}{%
+\subsubsection{Score-Based Likelihood
+Ratios}\label{score-based-likelihood-ratios}}
+
+Define prosecution and defense hypotheses, likelihood ratio. Point out
+that we are solving the common source problem as opposed to the specific
+source problem.
+
+Then discuss why likelihood ratios aren't usually tractable in pattern
+evidence. Instead, the high-dimensional feature space is mapped to a
+low-dimensional, typically univariate, similarity score. In our
+application, we treat the random forest class probability as the
+univariate image of the feature space. A predicted class probability
+close to 0 or 1 is a strong indication that the associated pair of
+cartridge cases is a non-match or match, respectively.
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+\hypertarget{cross-validation-results}{%
+\subsection{Cross-Validation Results}\label{cross-validation-results}}
+
+\hypertarget{testing-results}{%
+\subsection{Testing Results}\label{testing-results}}
+
+\hypertarget{discussion}{%
+\section{Discussion}\label{discussion}}
+
+Provide further details for Baldwin study error rate estimation here.
+Include false positive and false negative too. Qualify these error rates
+estimates with a range depending on how inconclusives are treated (cite
+Heike, Susan, Alicia paper). Compare these estimates to the algorithmic
+results.
+
+\hypertarget{conclusion}{%
+\section{Conclusion}\label{conclusion}}
+
+\newpage
+
+\hypertarget{computational-details}{%
+\section*{Computational Details}\label{computational-details}}
+\addcontentsline{toc}{section}{Computational Details}
+
+If necessary or useful, information about certain computational details
+such as version numbers, operating systems, or compilers could be
+included in an unnumbered section. Also, auxiliary packages (say, for
+visualizations, maps, tables, \dots) that are not cited in the main text
+can be credited here.
+
+The results in this paper were obtained using
+\proglang{R}\textasciitilde3.5.1. \proglang{R} itself and all packages
+used are available from the Comprehensive \proglang{R} Archive Network
+(CRAN) at \url{https://CRAN.R-project.org/}.
+
+\hypertarget{acknowledgments}{%
+\section*{Acknowledgments}\label{acknowledgments}}
+\addcontentsline{toc}{section}{Acknowledgments}
+
+All acknowledgments should be collected in this unnumbered section
+before the references. It may contain the usual information about
+funding and feedback from colleagues/reviewers/etc. Furthermore,
+information such as relative contributions of the authors may be added
+here (if any).
+
+\bibliography{refs}
+
+\newpage
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+
+
+
+\end{document}
