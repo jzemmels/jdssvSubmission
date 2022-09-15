@@ -69,6 +69,9 @@ options(prompt = 'R> ', continue = '+ ')
 knitr::opts_chunk$set(echo = "FALSE")
 
 library(cmcR)
+library(impressions)
+library(scored)
+
 library(x3ptools)
 library(tidyverse)
 library(patchwork)
@@ -312,7 +315,7 @@ Analogous to how a forensic examiner uses a comparison microscope with different
 
 First, we introduce notation that will be used to define the features.
 Let $A$ and $B$ denote two surfaces matrices that we wish to compare.
-For simplicity, we assume that $A,B \in \mathbb{R}^{d \times d}$ for $d > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
+For simplicity, we assume that $A,B \in \mathbb{R}^{k \times k}$ for $t > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
 Due to the presence of (structurally) missing values around the breech face impression region, additional padding does not interfere with the structure of the scan.}
 We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$th row and $j$th column, starting from the top-left corner, of matrix $A$.
 Throughout this section, we will use the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
@@ -320,7 +323,7 @@ Throughout this section, we will use the two known-match cartridge cases in \aut
 To accommodate structurally-missing values, we adapt standard matrix algebra as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing, otherwise standard matrix algebra holds.
 For example, the addition operator is defined as:
 \begin{align*}
-A \oplus_{NA} B = (a_{ij} \oplus_{NA} b_{ij})_{1 \leq i,j \leq d} = 
+A \oplus_{NA} B = (a_{ij} \oplus_{NA} b_{ij})_{1 \leq i,j \leq k} = 
 \begin{cases}
 a_{ij} + b_{ij} & \text{if both $a_{ij}$ and $b_{ij}$ are numbers} \\
 NA &\text{otherwise}
@@ -360,11 +363,11 @@ In practice, we use *nearest-neighbor interpolation* meaning $i^*$ and $j^*$ are
 <!-- \footnote{Technical note: We pad the dimensions of matrix $B$ as-needed assuming free boundary conditions (0-padding) so as to not crop-out any of the original values [cite a boundary condition reference here]. For notational simplicity, we'll refer to this padded matrix as $B$ also.} -->
 
 To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$.
-Denoted $(A \star B)$, the CCF between $A$ and $B$ is a 2D array of dimension $2d - 1 \times 2d - 1$ with the $m,n$-th element given by:
+Denoted $(A \star B)$, the CCF between $A$ and $B$ is a 2D array of dimension $2k - 1 \times 2k - 1$ with the $m,n$-th element given by:
 \begin{align*}
-(a \star b)_{mn} = \sum_{i=1}^d \sum_{j=1}^d a_{mn} \cdot b_{i + m, j + n}
+(a \star b)_{mn} = \sum_{i=1}^k \sum_{j=1}^k a_{mn} \cdot b_{i + m, j + n}
 \end{align*} 
-where $1 \leq m,n \leq 2d - 1$.
+where $1 \leq m,n \leq 2k - 1$.
 The value $(a \star b)_{mn}$ quantifies the similarity between $A$ and $B$ after $B$ is translated $m$ elements horizontally and $n$ elements vertically.
 The CCF is often normalized between -1 and 1 for interpretability.
 
@@ -501,7 +504,7 @@ Each of these reference cells will be compared to the "target" matrix, in this c
 Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each reference cell to $B^*$ using a new rotation grid of $\pmb{\Theta}' = \{\theta^* - 2^\circ, \theta^* - 1^\circ,\theta^*,\theta^* + 1^\circ,\theta^* + 2^\circ\}$.
 
 We now extend the surface matrix notation introduced previously to accommodate cells.
-Let $A_{k}$ denote the $k$th cell of matrix $A$, $k = 1,...,T$ where $T$ is the total number of cells containing non-missing values (e.g., $T = 38$ in \autoref{fig:cellGridExample}) and let $(a_k)_{ij}$ denote the $i,j$-th element of $A_k$.
+Let $A_{t}$ denote the $t$th cell of matrix $A$, $t = 1,...,T$ where $T$ is the total number of cells containing non-missing values (e.g., $T = 38$ in \autoref{fig:cellGridExample}) and let $(a_t)_{ij}$ denote the $i,j$-th element of $A_t$.
 <!-- \footnote{In practice, we number the cells in lexicographic order (left-to-right, top-to-bottom) starting from the top-left.} -->
 
 The cell-based comparison procedure is outlined in \autoref{alg:cellComparison}.
@@ -514,12 +517,12 @@ Partition $A$ into a grid of $R \times C$ cells\;
 Discard cells containing only missing values, leaving $T$ remaining cells\;
 \For{$\theta \in \pmb{\Theta}'$}{
 Rotate $B^*$ by $\theta$ to obtain $B^*_\theta$\;
-\For{$k = 1,...,T$}{
-Calculate $CCF_{\max, \theta, k} = \max_{m,n} (a_k \star b^*_\theta)_{mn}$\;
-Calculate translation $[m^*_{\theta,k},n^*_{\theta,k}] = \arg \max_{m,n} (a_i \star b^*_\theta)[m,n]$
+\For{$t = 1,...,T$}{
+Calculate $CCF_{\max, \theta, t} = \max_{m,n} (a_k \star b^*_\theta)_{mn}$\;
+Calculate translation $[m^*_{\theta,t},n^*_{\theta,t}] = \arg \max_{m,n} (a_i \star b^*_\theta)[m,n]$
 }
 }
-\Return{$\pmb{F} = \{(m^*_{\theta,k},n^*_{\theta,k}, CCF_{\max,\theta,k}, \theta) : \theta \in \pmb{\Theta}', k = 1,...,T\}$}
+\Return{$\pmb{F} = \{(m^*_{\theta,t},n^*_{\theta,t}, CCF_{\max,\theta,t}, \theta) : \theta \in \pmb{\Theta}', t = 1,...,T\}$}
 \caption{Cell-Based Comparison Procedure}
 \label{alg:cellComparison}
 \end{algorithm}
@@ -579,27 +582,32 @@ knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 knitr::include_graphics("figures/estimatedTranslationFaceted.png")
 ```
 
-Just as with the whole-scan comparison, we calculate the pairwise-complete correlation between each cell $A_i$ and a matrix of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_\theta,n^*_\theta]$.
-From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{\text{comp},\theta,k} : \theta \in \pmb{\Theta}'\}$.
-For $k = 1,...,T$, define the cell-wise maximum CCF and pairwise-complete correlation as: \begin{align*}
-CCF_{\max,k} &= \max_{\theta} \{CCF_{\max,\theta,k} : \theta \in \pmb{\Theta}'\} \\
-cor_{\text{comp},k} &= \max_{\theta} \{cor_{\text{comp},\theta,k} : \theta \in \pmb{\Theta}'\}
+Just as with the whole-scan comparison, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_\theta,n^*_\theta]$.
+From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}$.
+For $t = 1,...,T$, define the cell-wise maximum CCF and pairwise-complete correlation as: 
+\begin{align*}
+CCF_{\max,t} &= \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\} \\
+cor_{\text{comp},t} &= \max_{\theta} \{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}
 \end{align*} We compute the following features using the correlation data: \begin{align*}
-\overline{CCF}_{\max, \cdot} &= \frac{1}{T} \sum_{k=1}^T CCF_{\max,k} \\
-\overline{cor}_{\text{comp}, \cdot} &= \frac{1}{T} \sum_{k=1}^T cor_{\text{comp},k} \\
-s_{CCF}^2 &= \frac{1}{T-1} \sum_{k=1}^T (CCF_{\max,k} - \overline{CCF}_{\max, \cdot})^2  \\
-s_{cor}^2 &= \frac{1}{T-1} \sum_{k=1}^T (cor_{\text{comp},k} - \overline{cor}_{\text{comp}, \cdot})^2
+\overline{CCF}_{\max, \cdot} &= \frac{1}{T} \sum_{t=1}^T CCF_{\max,t} \\
+\overline{cor}_{\text{comp}, \cdot} &= \frac{1}{T} \sum_{t=1}^T cor_{\text{comp},t} \\
+s_{CCF}^2 &= \frac{1}{T-1} \sum_{t=1}^T (CCF_{\max,t} - \overline{CCF}_{\max, \cdot})^2  \\
+s_{cor}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{\text{comp},t} - \overline{cor}_{\text{comp}, \cdot})^2
 \end{align*} We expect $\overline{CCF}_{\max, \cdot}$, $\overline{cor}_{\text{comp}, \cdot}$ to be large and $s_{CCF}^2$, $s_{cor}^2$ small for truly matching cartridge case pairs.
 
-For $k = 1,...,T$, define the estimated translations and rotation for $A_i$ as: \begin{align*}
-\theta^*_i &= \arg \max_{\theta} \{CCF_{\max,\theta,k} : \theta \in \pmb{\Theta}'\} \\
-m^*_i &= m^*_{\theta^*_i,k} \\
-n^*_i &= n^*_{\theta^*_i,k}
-\end{align*} We compute the following additional features using the estimated cell translations and rotations: \begin{align*}
-s_{m^*}^2 = \frac{1}{T-1} \sum_{k=1}^T (m^*_{k} - \bar{m}^*_{\cdot})^2 \\
-s_{n^*}^2 = \frac{1}{T-1} \sum_{k=1}^T (n^*_{k} - \bar{n}^*_{\cdot})^2 \\
-s_{\theta^*}^2 = \frac{1}{T-1} \sum_{k=1}^T (\theta^*_{k} - \bar{\theta}^*_{\cdot})^2
-\end{align*} where $\bar{m}^*_{\cdot} = \frac{1}{T} \sum_{k=1}^T m^*_{k}$, $\bar{n}^*_{\cdot} = \frac{1}{T} \sum_{k=1}^T n^*_{k}$, and $\bar{\theta}^*_{\cdot} = \frac{1}{T} \sum_{k=1}^T \theta^*_{k}$.
+For $t = 1,...,T$, define the estimated translations and rotation for $A_k$ as: \begin{align*}
+\theta^*_t &= \arg \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\} \\
+m^*_t &= m^*_{\theta^*_t,t} \\
+n^*_t &= n^*_{\theta^*_t,t}
+\end{align*} 
+
+We compute the following additional features using the estimated cell translations and rotations: 
+\begin{align*}
+s_{\theta^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (\theta^*_{t} - \bar{\theta}^*_{\cdot})^2 \\
+s_{m^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (m^*_{t} - \bar{m}^*_{\cdot})^2 \\
+s_{n^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (n^*_{t} - \bar{n}^*_{\cdot})^2 
+\end{align*} 
+where $\bar{m}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T m^*_{t}$, $\bar{n}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T n^*_{t}$, and $\bar{\theta}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T \theta^*_{t}$.
 We expect $s_{m^*}^2, s_{n^*}^2, s_{\theta^*}^2$ to be small for truly matching cartridge case pairs.
 
 From this cell-based comparison procedure, we obtain seven features summarized in \autoref{tab:cellBasedComparison}.
@@ -630,6 +638,7 @@ $s_{\theta^*}^2$ & Sample variance of the estimated rotations across all cells \
 \label{tab:cellBasedComparison}
 \end{table}
 ```
+
 ### Density-Based Spatial Clustering of Applications with Noise
 
 As discussed in the last section, we wish to identify when multiple cells agree on a particular registration.
@@ -700,7 +709,7 @@ knitr::plot_crop("figures/dbscanScatterplot.png")
 ```
 
 \autoref{fig:dbscanScatterplot} shows an example of DBSCAN cluster assignments for the known-match pair $A$ and $B$ shown in \autoref{fig:matchPair}.
-The left scatterplot shows the per-cell estimated translations $[m^*_{\theta,k}, n^*_{\theta,k}]$ for $\theta = 3^\circ$ when scan $A$ is used as reference and $B^*$ as target, resulting a cluster of size 14.
+The left scatterplot shows the per-cell estimated translations $[m^*_{\theta,t}, n^*_{\theta,t}]$ for $\theta = 3^\circ$ when scan $A$ is used as reference and $B^*$ as target, resulting a cluster of size 14.
 The right scatterplot shows the per-cell estimated translations with the roles of $A$ and $B^*$ reversed: now $B^*$ is partitioned into a grid of reference cells that are compared to $A$, resulting in a cluster of size 13.
 
 We extend the notation introduced earlier with a subscript $d = 1,2$ to accommodate two comparison directions.
@@ -755,10 +764,10 @@ The final set of features we calculate are based on visual diagnostic tools desc
 These numerical features quantify the qualitative observations one can make from the diagnostics.
 
 To create the visual diagnostics, we perform element-wise matrix operations.
-In particular, for a matrix $X \in \mathbb{R}^{d \times d}$ and condition $cond: \mathbb{R}^{d \times d} \to \{TRUE,FALSE\}^{d \times d}$, we define an element-wise filter operation $\mathcal{F}: \mathbb{R}^{d \times d} \to \mathbb{R}^{d \times d}$ as:
+In particular, for a matrix $X \in \mathbb{R}^{k \times k}$ and condition $cond: \mathbb{R}^{k \times k} \to \{TRUE,FALSE\}^{k \times k}$, we define an element-wise filter operation $\mathcal{F}: \mathbb{R}^{k \times k} \to \mathbb{R}^{k \times k}$ as:
 \begin{align*}
 \mathcal{F}_{cond}(X) = 
-(f_{ij})_{1 \leq i,j \leq d} =
+(f_{ij})_{1 \leq i,j \leq k} =
 \begin{cases}
 x_{ij} &\text{if $cond$ is $TRUE$ for element $i,j$} \\
 NA &\text{otherwise}
@@ -766,14 +775,14 @@ NA &\text{otherwise}
 \end{align*}
 Of particular interest in our application is the (absolute) difference between surface matrices.
 For example, $\mathcal{F}_{|A - B| > \tau}(A)$ contains elements of matrix $A$ where the pair of scans $A$ and $B$ deviate by at least $\tau \in \mathbb{R}$.
-Surface values in $A$ and $B$ that are "close," meaning within $\tau$ distance, to each other are replaced with $NA$ in this filtered matrix.
+Surface values in $A$ and $B^*$ that are "close," meaning within $\tau$ distance, to each other are replaced with $NA$ in this filtered matrix.
 
 The Complementary Comparison Plot visualizes the similarities and differences between two scans.
 \autoref{fig:fullScan_comparisonPlot} shows a Complementary Comparison plot between scan $A$ and $B^*$ defined previously.
 The left column shows Scans $A$ and $B^*$.
 The middle column shows a filtered element-wise average between $A$ and $B^*$; namely $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$.
 This filtered element-wise average emphasizes similarities between $A$ and $B^*$.
-The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B)$ on top and bottom, respectively.
+The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
 These plots emphasize the differences between the two scans.
 The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
 
@@ -801,7 +810,9 @@ compData_fullScans <-
               filter(pairwiseCompCor == max(pairwiseCompCor)))
 
 save(compData_fullScans,file = "data/compData_fullScans.RData")
+```
 
+```{r,cache=TRUE,include=FALSE}
 scanA <- compData_fullScans %>%
     filter(direction == "comparison_refToTarget") %>%
     pull(cellHeightValues) %>%
@@ -816,15 +827,19 @@ scanA$surface.matrix <- (scanA$surface.matrix*scanA$cmcR.info$scaleByVal + scanA
 
 scanBStar$surface.matrix <- (scanBStar$surface.matrix*scanBStar$cmcR.info$scaleByVal + scanBStar$cmcR.info$centerByVal)
 
-debugonce(impressions::x3p_comparisonPlot)
-
-plt <- impressions::x3p_comparisonPlot(
+compPlt <- impressions::x3p_comparisonPlot(
   x3p1 = scanA,
   x3p2 = scanBStar,
-  plotNames = c("Scan A","Scan B*","Filtered Element-wise Average",
-                "Scan A Filtered Differences","Scan B Filtered Differences"))
+  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
+                "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
+  labelSize = 2.5,
+  legendLength = grid::unit(4,"in"),
+  legendHoriz = -1.3,
+  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
+```
 
-ggsave(plot = plt,filename = "figures/fullScan_comparisonPlot.png")
+```{r,include=FALSE}
+ggsave(plot = compPlt,filename = "figures/fullScan_comparisonPlot.png",dpi = 500)
 knitr::plot_crop("figures/fullScan_comparisonPlot.png")
 ```
 
@@ -835,13 +850,90 @@ knitr::include_graphics("figures/fullScan_comparisonPlot.png")
 
 We make a series of qualitative assumptions related to how a Complementary Comparison Plot will look for matching and non-matching cartridge case pairs.
 These assumptions lead to a set of features that quantify these assumptions.
-We now describe each assumption and their associated features.
+We now describe each feature and their associated assumptions.
 
+We first consider the correlation $cor_{filt}$ between the filtered surface matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B)$.
+We assume that $cor_{filt}$ will be larger for truly matching $A$ and $B$ than non-matching.
+Said another way, we assume that even regions of $A$ and $B$ that are different will follow similar trends, which can occur due to variability in the amount of contact between a cartridge case and breech face across multiple fires of a single firearm.
+The correlation is calculated by vectorizing the two filtered surface matrices and treating missing values by case-wise deletion.
+
+As before, we extend this notation to accommodate cell comparisons $t = 1,...,T$ using subscripts: $cor_{filt,t}$.
+For example, $cor_{filt,1}$ is the correlation between cell filtered surface matrices $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(A_1)$ and $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(B_{\theta_1^*,1}^*)$ where $B_{\theta_1^*,1}^*$ is the alignment of cell $A_1$ in surface matrix $B^*$ that maximizes the CCF.
+We calculate the average and standard deviation of filtered correlation values across all cells:
+\begin{align*}
+\overline{cor}_{filt,\cdot} &= \frac{1}{T} \sum_{t=1}^T cor_{filt,t} \\
+s_{cor_{filt}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{filt,t} - \overline{cor}_{filt,\cdot})^2.
+\end{align*}
+
+Next, we consider features based on the elements of the Boolean $cond$ matrix.
+Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| < \tau$ visualized in black-and-white in the middle where filtered elements are shown in white.
+We use a connected components labeling algorithm detailed in [Haralick and Shapiro (1992)] to identify individual neighborhoods of filtered elements.
+More precisely, the algorithm returns a set of sets $\pmb{B} = \{B_1,B_2,...,B_L\}$ where each $B_l$ is a set of indices of the matrix $|A - B^*| < \tau$ that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
+The right side of \autoref{fig:filterLabeling} shows each $B_l$ distinguished by different fill colors, $l = 1,...,L$.
+
+
+```{r,include=FALSE,cache = TRUE}
+plt1 <- ggplot_build(compPlt$patches$plots[[3]])
+
+plt1 <- plt1$data[[2]] %>%
+  ggplot(aes(x=x,y=y,fill=fill)) +
+  geom_raster() +
+  scale_fill_identity() +
+  coord_fixed(expand = FALSE) +
+  theme_void() +
+  geom_path(data = plt1$data[[4]],
+            aes(x=x,y=y,group=group),
+            size = .2,
+            colour = "gray40",
+            inherit.aes = FALSE)
+
+scanFilterBinarized <- scanA %>% 
+  impressions::x3p_elemAverage(scanBStar) %>%
+  impressions::x3p_to_dataFrame() %>%
+  mutate(value = (abs(c({scanA$surface.matrix - scanBStar$surface.matrix})) > x3p_sd(scanA,scanBStar)))
+
+plt2 <- scanFilterBinarized %>%
+  ggplot(aes(x=x,y=y,fill=value)) +
+  geom_raster() +
+  scale_fill_manual(values = c("black","white"),na.value = "gray65") +
+  coord_fixed(expand = FALSE) +
+  theme_void() +
+  theme(legend.position = "none")
+
+
+scanFilterLabeled <- scanFilterBinarized %>%
+  mutate(x = x + 1,y = y + 1,
+         value = ifelse(!value | is.na(value),0,1)) %>%
+  imager::as.cimg() %>%
+  imager::label() %>%
+  as.data.frame() %>%
+  mutate(value = factor(value))
+
+plt3 <- scanFilterLabeled %>%
+  ggplot(aes(x=x,y=y,fill=value)) +
+  geom_raster() +
+  coord_fixed(expand = FALSE) +
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gray65",sample(RColorBrewer::brewer.pal(12,"Paired"),size = length(unique(scanFilterLabeled$value)) - 1,replace = TRUE)))
+
+plt <- (plt1 | plt2 | plt3) & theme(panel.border = element_rect(colour = "black",fill = NA))
+```
+
+```{r,include=FALSE}
+ggsave(plot = plt,filename = "figures/filterLabeling.png")
+knitr::plot_crop("figures/filterLabeling.png")
+```
+
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:filterLabeling} Labeled filter neighborhoods."}
+knitr::include_graphics("figures/filterLabeling.png")
+```
 
 
 ## Scoring
 
-We randomly split the data set into \# barrels for training and \## barrels for testing.
+We randomly split the data set into \# barrels for training and \# barrels for testing.
 In our case, this resulted in a training data set of 200 cartridge cases, $\binom{200}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
 
 We use the [caret] package to perform 10-fold cross-validation repeated three times to train classifiers.
