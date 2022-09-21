@@ -859,18 +859,17 @@ The correlation is calculated by vectorizing the two filtered surface matrices a
 
 As before, we extend this notation to accommodate cell comparisons $t = 1,...,T$ using subscripts: $cor_{filt,t}$.
 For example, $cor_{filt,1}$ is the correlation between cell filtered surface matrices $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(A_1)$ and $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(B_{\theta_1^*,1}^*)$ where $B_{\theta_1^*,1}^*$ is the alignment of cell $A_1$ in surface matrix $B^*$ that maximizes the CCF.
-We calculate the average and standard deviation of filtered correlation values across all cells:
+We calculate the sample mean and variance of the filtered correlation values across all cells:
 \begin{align*}
 \overline{cor}_{filt,\cdot} &= \frac{1}{T} \sum_{t=1}^T cor_{filt,t} \\
-s_{cor_{filt}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{filt,t} - \overline{cor}_{filt,\cdot})^2.
+s_{cor_{filt,\cdot}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{filt,t} - \overline{cor}_{filt,\cdot})^2.
 \end{align*}
 
 Next, we consider features based on the elements of the Boolean $cond$ matrix.
 Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| < \tau$ visualized in black-and-white in the middle where filtered elements are shown in white.
 We use a connected components labeling algorithm detailed in [Haralick and Shapiro (1992)] to identify individual neighborhoods of filtered elements.
-More precisely, the algorithm returns a set of sets $\pmb{B} = \{B_1,B_2,...,B_L\}$ where each $B_l$ is a set of indices of the matrix $|A - B^*| < \tau$ that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
-The right side of \autoref{fig:filterLabeling} shows each $B_l$ distinguished by different fill colors, $l = 1,...,L$.
-
+More precisely, the algorithm returns a set of sets $\pmb{S} = \{S_1,S_2,...,S_L\}$ where each $S_l$ is a set of indices of the matrix $|A - B^*| < \tau$ that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
+The right side of \autoref{fig:filterLabeling} shows each $S_l$ distinguished by different fill colors, $l = 1,...,L$.
 
 ```{r,include=FALSE,cache = TRUE}
 plt1 <- ggplot_build(compPlt$patches$plots[[3]])
@@ -926,10 +925,69 @@ knitr::plot_crop("figures/filterLabeling.png")
 ```
 
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:filterLabeling} Labeled filter neighborhoods."}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:filterLabeling} (Left) After aligning two scans, we filter regions that are "different" from each other, meaning the absolute difference between surface values is larger than some threshold. (Middle) We binarize the scan into "filtered" or "non-filtered" regions - shown in white and black, respectively. (Right) Using a connected components labeling algorithm, we identify connected "neighborhoods" of filtered elements. We assume that these neighborhoods will be small, on average, if comparing truly matching cartridge cases.'}
 knitr::include_graphics("figures/filterLabeling.png")
 ```
 
+We calculate the following features using the full-scan labeled neighborhoods:
+\begin{align*}
+\overline{|S|}_{\cdot} &= \frac{1}{L} \sum_{l=1}^L |S_l| \\
+s^2_{|S|, full} &= \frac{1}{L - 1} \sum_{l=1}^L (|S_l| - \overline{|S|}_{\cdot})^2
+\end{align*}
+where $|S_l|$ is the size of the set $S_l$.
+We assume that these features will be small for truly matching cartridge cases.
+That is to say, we assume that the regions of matching $A$ and $B$ that are different will all be small, on average, and vary little in their size.
+This assumption is appropriate assuming that the breech face leaves consistent markings on fired cartridge cases.
+
+Again, we extend the notation to accommodate individual cells.
+Let $\pmb{S}_t = \{S_{t,1},...,S_{t,L}\}$ denote the set of labeled neighborhoods for a cell $t = 1,...,T$.
+\begin{align*}
+\overline{|S|}_{t,\cdot} &= \frac{1}{L} \sum_{l=1}^L |S_{t,l}| \\
+s^2_{|S|, t} &= \frac{1}{L - 1} \sum_{l=1}^L (|S_{t,l}| - \overline{|S|}_{t,\cdot})^2.
+\end{align*}
+
+Similar to the assumptions made for $\overline{|S|}_{\cdot}$ and $s^2_{S, full}$, we assume that the cell-based $\overline{|S|}_{t,\cdot}$ and $s^2_{S, t}$ will be small, on average.
+Consequently, we calculate the sample average and variance of these features:
+\begin{align*}
+\overline{|S|}_{\cdot,\cdot} &= \frac{1}{T} \sum_{t=1}^T \overline{|S|}_{t,\cdot} \\
+s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\
+\bar{s}^2_{|S|,\cdot} &= \frac{1}{T} s^2_{S, t} \\
+s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2.
+\end{align*}
+Again, we assume that these four features will be small for truly matching cartridge cases.
+
+\autoref{tab:visualDiagnosticFeatures} summarizes the 9 features calculated based on the visual diagnostics.
+
+```{=tex}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
+\hline
+\textbf{Notation} & \textbf{Feature Description} \\
+\hline
+$cor_{filt}$ & Pairwise-complete between different regions of full aligned scans \\
+\hline
+$\overline{cor}_{filt,\cdot}$ & Average pairwise-complete correlation between different regions of aligned cells \\
+\hline
+$s_{cor_{filt,\cdot}}^2$ & Standard deviation of the cell pairwise-complete correlation values \\
+\hline
+$\overline{|S|}_{\cdot}$ & Full scan, sample mean of labeled neighborhood sizes \\
+\hline
+$s^2_{|S|, full}$ & Full scan, sample variance of labeled neighborhood sizes \\
+\hline
+$\overline{|S|}_{\cdot,\cdot}$ & Cell-based, sample average of the sample averages of labeled neighborhood sizes \\
+\hline
+$s^2_{|S|_{t,\cdot}}$ & Cell-based, sample variance of the sample averages of labeled neighborhood sizes \\
+\hline
+$\bar{s}^2_{|S|,\cdot}$ & Cell-based, sample average of the sample variances of the labeled neighborhood sizes \\
+\hline
+$s^2_{s^2_{|S|, t}}$ & Cell-based, sample variance of the sample variances of the labeled neighborhood sizes\\
+\hline
+\end{tabular}
+\caption{Eight similarity features calculated based on visual diagnostics.}
+\label{tab:visualDiagnosticFeatures}
+\end{table}
+```
 
 ## Scoring
 
@@ -984,11 +1042,11 @@ knitr::include_graphics("images/trainedCART.png")
 $C$ & 100.0 \\
 $\overline{CCF}_{\max,\cdot}$ & 29.2 \\
 $\Delta_{trans}$ & 29.0 \\
-`blobSize\_full` & 6.7 \\
+$\overline{|S|}_{\cdot}$ & 6.7 \\
 $\overline{cor}_{\text{comp},\cdot}$ & 6.1 \\
 $CCF_{\max}$ & 2.7 \\
 $\Delta_\theta$ & 2.2 \\
-`cellBlobSize\_ave\_ave` & 1.8 \\
+$\overline{|S|}_{\cdot, \cdot}$ & 1.8 \\
 $cor_{\text{comp}}$ & 1.4 \\
 $\sigma_{m^*}^2$ & 1.3
 \\ \hline
