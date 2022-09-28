@@ -455,7 +455,7 @@ pltDat <- reference_eroded %>%
   cmcR::comparison_cellDivision(numCells = c(8,8)) %>%
   pmap_dfr(~ {
     
-    impressions::x3pToDF(..2) %>%
+    impressions::x3p_to_dataFrame(..2) %>%
       mutate(cellIndex = ..1)
     
   }) %>%
@@ -674,12 +674,13 @@ estimRotations <- compData %>%
   select(direction,theta) %>%
   rename(thetaHat = theta)
 
-plt <- compData %>%
+plt1 <- compData %>%
   select(-c(cellHeightValues,alignedTargetCell)) %>%
   left_join(estimRotations,by = "direction") %>%
   filter(theta == thetaHat) %>%
   mutate(direction = factor(direction,labels = c("Scan A vs. Scan B","Scan B vs. Scan A")),
          label = paste0(direction,", Rotation: ",theta)) %>%
+    filter(direction == "Scan A vs. Scan B") %>%
   group_by(label) %>%
   group_split() %>%
   map_dfr(function(dat){
@@ -702,7 +703,50 @@ plt <- compData %>%
         legend.position = "bottom") +
   geom_vline(xintercept = 0,linetype = "dashed") +
   geom_hline(yintercept = 0,linetype = "dashed") +
-  scale_colour_manual(values = c("gray80","black"))
+  scale_colour_manual(values = c("gray80","black")) +
+  xlim(c(-100,100)) +
+  ylim(c(-100,100)) +
+  theme(legend.position = "none")
+
+plt2 <- compData %>%
+  select(-c(cellHeightValues,alignedTargetCell)) %>%
+  left_join(estimRotations,by = "direction") %>%
+  filter(theta == thetaHat) %>%
+  mutate(direction = factor(direction,labels = c("Scan A vs. Scan B","Scan B vs. Scan A")),
+         label = paste0(direction,", Rotation: ",theta)) %>%
+    filter(direction == "Scan B vs. Scan A") %>%
+  group_by(label) %>%
+  group_split() %>%
+  map_dfr(function(dat){
+    
+    dat %>%
+      mutate(clust = dbscan::dbscan(x = dat %>% select(x,y),eps = 5,minPts = 5)$cluster,
+             clust = factor(ifelse(clust == 0,0,1),labels = c("Noise","Cluster")))
+    
+  }) %>%
+  ggplot(aes(x=x,y,y,colour = clust)) +
+  # geom_point() +
+  geom_jitter(width = 3,height = 3,size = 1) +
+  coord_fixed(expand = TRUE) +
+  facet_wrap(~ label,nrow = 1) +
+  theme_bw() +
+  labs(x = "n",
+       y = "m",
+       colour = "DBSCAN") +
+  theme(axis.text = element_text(size = 6),
+        legend.position = "bottom") +
+  geom_vline(xintercept = 0,linetype = "dashed") +
+  geom_hline(yintercept = 0,linetype = "dashed") +
+  scale_colour_manual(values = c("gray80","black")) +
+  scale_x_reverse(limits = c(100,-100)) +
+  scale_y_reverse(limits = c(100,-100)) +
+  theme(legend.position = "none")
+
+pltLegend <- plt1 %>%
+  cowplot::get_legend() %>%
+  cowplot::plot_grid()
+
+
 
 ggsave(filename = "figures/dbscanScatterplot.png",plot = plt)
 knitr::plot_crop("figures/dbscanScatterplot.png")
