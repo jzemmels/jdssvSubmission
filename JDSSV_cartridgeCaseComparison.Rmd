@@ -69,8 +69,8 @@ options(prompt = 'R> ', continue = '+ ')
 knitr::opts_chunk$set(echo = "FALSE")
 ```
 
-```{r load-libraries, include = FALSE}
-library(cmcR)
+```{r load-libraries, cache = FALSE, include = FALSE}
+library(cmcR) # remotes::install_github("csafe-isu/cmcR")
 library(impressions) # remotes::install_github("jzemmels/impressions")
 library(scored) # remotes::install_github("jzemmels/scored")
 
@@ -538,9 +538,10 @@ The points appear randomly distributed for most of the rotation values except ar
 This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
 The task is to determine when cells reach a registration consensus.
 
-```{r,eval=FALSE,include=FALSE}
+```{r,eval=TRUE,include=FALSE}
+if (!file.exists("data/compData.RData")) {
 compData <- 
-  bind_rows(map_dfr(seq(-30,30,by = 3),
+  dplyr::bind_rows(map_dfr(seq(-30,30,by = 3),
                     ~ cmcR::comparison_allTogether(reference = reference_eroded,
                                                    target = target_eroded,
                                                    theta = .,
@@ -558,6 +559,7 @@ compData <-
               mutate(direction = "comparison_targetToRef"))
 
 save(compData,file = "data/compData.RData")
+}
 ```
 
 ```{r,cache=TRUE,include=FALSE}
