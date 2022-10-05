@@ -564,31 +564,23 @@ save(compData,file = "data/compData.RData")
 }
 ```
 
-```{r,cache=TRUE,include=FALSE}
-load("data/compData.RData")
 
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.width = 8, fig.width=2, fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[\\hat{m}, \\hat{n}] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
+load("data/compData.RData")
 plt <- compData %>%
   select(-c(cellHeightValues,alignedTargetCell)) %>%
   filter(direction == "comparison_refToTarget") %>%
   filter(theta >= -3 & theta <= 9) %>%
   ggplot(aes(x=x,y,y)) +
-  # geom_point() +
-  geom_jitter(width = 3,height = 3,size = .5) +
-  coord_fixed(expand = TRUE) +
-  facet_wrap(~ theta,nrow = 1,labeller = label_both) +
-  theme_bw() +
-  labs(x = "n",
-       y = "m") +
-  theme(axis.text = element_text(size = 6)) +
-  geom_vline(xintercept = 0,linetype = "dashed") +
-  geom_hline(yintercept = 0,linetype = "dashed")
-
-ggsave(filename = "figures/estimatedTranslationFaceted.png")
-knitr::plot_crop("figures/estimatedTranslationFaceted.png")
-```
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[\\hat{m}, \\hat{n}] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
-knitr::include_graphics("figures/estimatedTranslationFaceted.png")
+    geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
+    geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
+    # geom_point() +
+    geom_jitter(width = 3,height = 3, alpha=.8) +
+    coord_fixed(expand = TRUE) +
+    facet_wrap(~ theta,nrow = 1,labeller = label_both) +
+    theme_bw() +
+    labs(x = "horizontal shift n", y = "vertical shift m") +
+    theme(axis.text = element_text(size = 6)) 
 ```
 
 Just as with the whole-scan comparison, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_\theta,n^*_\theta]$.
@@ -1155,7 +1147,7 @@ CMC with Song et al. (2018) parameters & 3.1 & 0.6 & 36.1 \\
 \hline
 \end{tabular}
 \caption{Test set prediction error rates for CART, random forest, and an implementation of the Congruent Method Cells method from Zemmels et al. (2022) using parameter settings from previous papers.}
-\label{tab:trainingAccuracy}
+\label{tab:testingAccuracy}
 \end{table}
 ```
 <!-- \hline -->
