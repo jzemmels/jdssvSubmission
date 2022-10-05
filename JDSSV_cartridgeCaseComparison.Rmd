@@ -595,7 +595,7 @@ Just as with the whole-scan comparison, we calculate the pairwise-complete corre
 From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}$.
 For $t = 1,...,T$, define the cell-wise maximum CCF and pairwise-complete correlation as: 
 \begin{align*}
-CCF_{\max,t} &= \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\}
+CCF_{\max,t} &= \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\} \\
 cor_{\text{comp},t} &= \max_{\theta} \{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}
 \end{align*}
 
@@ -1155,7 +1155,7 @@ CMC with Song et al. (2018) parameters & 3.1 & 0.6 & 36.1 \\
 \hline
 \end{tabular}
 \caption{Test set prediction error rates for CART, random forest, and an implementation of the Congruent Method Cells method from Zemmels et al. (2022) using parameter settings from previous papers.}
-\label{tab:trainingAccuracy}
+\label{tab:testingAccuracy}
 \end{table}
 ```
 <!-- \hline -->
