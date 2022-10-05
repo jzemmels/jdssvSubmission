@@ -564,30 +564,27 @@ if (!file.exists("data/compData.RData")) {
 }
 ```
 
-```{r,cache=TRUE,include=FALSE}
+```{r, include=FALSE}
 load("data/compData.RData")
-
 plt <- compData %>%
   select(-c(cellHeightValues,alignedTargetCell)) %>%
   filter(direction == "comparison_refToTarget") %>%
   filter(theta >= -3 & theta <= 9) %>%
   ggplot(aes(x=x,y,y)) +
-  # geom_point() +
-  geom_jitter(width = 3,height = 3,size = .5) +
-  coord_fixed(expand = TRUE) +
-  facet_wrap(~ theta,nrow = 1,labeller = label_both) +
-  theme_bw() +
-  labs(x = "n",
-       y = "m") +
-  theme(axis.text = element_text(size = 6)) +
-  geom_vline(xintercept = 0,linetype = "dashed") +
-  geom_hline(yintercept = 0,linetype = "dashed")
-
-ggsave(filename = "figures/estimatedTranslationFaceted.png")
+    geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
+    geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
+    # geom_point() +
+    geom_jitter(width = 3,height = 3, alpha=.8) +
+    coord_fixed(expand = TRUE) +
+    facet_wrap(~ theta,nrow = 1,labeller = label_both) +
+    theme_bw() +
+    labs(x = "horizontal shift n", y = "vertical shift m") +
+    theme(axis.text = element_text(size = 6)) 
+ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, height = 3)
 knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 ```
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[\\hat{m}, \\hat{n}] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[\\hat{m}, \\hat{n}] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
 knitr::include_graphics("figures/estimatedTranslationFaceted.png")
 ```
 
@@ -717,14 +714,14 @@ plt1 <- compData %>%
   coord_fixed(expand = TRUE) +
   facet_wrap(~ label,nrow = 1) +
   theme_bw() +
-  labs(x = "n",
-       y = "m",
+  labs(x = "horizontal shift n",
+       y = "vertical shift m",
        colour = "DBSCAN") +
   theme(axis.text = element_text(size = 6),
         legend.position = "bottom") +
   geom_vline(xintercept = 0,linetype = "dashed") +
   geom_hline(yintercept = 0,linetype = "dashed") +
-  scale_colour_manual(values = c("gray80","black")) +
+  scale_colour_manual(values = c("gray65","black")) +
   xlim(c(-100,100)) +
   ylim(c(-100,100)) +
   theme(legend.position = "none")
@@ -751,14 +748,14 @@ plt2 <- compData %>%
   coord_fixed(expand = TRUE) +
   facet_wrap(~ label,nrow = 1) +
   theme_bw() +
-  labs(x = "n",
-       y = "m",
+  labs(x = "horizontal shift n",
+       y = "vertical shift m",
        colour = "DBSCAN") +
   theme(axis.text = element_text(size = 6),
         legend.position = "bottom") +
   geom_vline(xintercept = 0,linetype = "dashed") +
   geom_hline(yintercept = 0,linetype = "dashed") +
-  scale_colour_manual(values = c("gray80","black")) +
+  scale_colour_manual(values = c("gray65","black")) +
   scale_x_reverse(limits = c(100,-100)) +
   scale_y_reverse(limits = c(100,-100)) +
   theme(legend.position = "none")
@@ -769,7 +766,8 @@ pltLegend <- plt1 %>%
 
 
 
-ggsave(filename = "figures/dbscanScatterplot.png",plot = plt)
+ggsave(filename = "figures/dbscanScatterplot.png", plot = plt1+plt2, 
+       width = 8, height = 4)
 knitr::plot_crop("figures/dbscanScatterplot.png")
 ```
 
