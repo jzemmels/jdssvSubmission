@@ -20,7 +20,7 @@ author:
     address: |
       | Department of Statistics
       | University of Nebraska - Lincoln
-      | 349A Hardin Hall
+      | 343D Hardin Hall
       | 3310 Holdrege St
       | Lincoln, NE 68588
     email: \email{susan.vanderplas@unl.edu}
