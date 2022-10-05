@@ -70,7 +70,7 @@ knitr::opts_chunk$set(echo = "FALSE")
 
 library(cmcR)
 library(impressions)
-library(scored)
+library(scored) # remotes::install_github("jzemmels/scored")
 
 library(x3ptools)
 library(tidyverse)
