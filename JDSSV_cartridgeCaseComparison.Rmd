@@ -20,7 +20,7 @@ author:
     address: |
       | Department of Statistics
       | University of Nebraska - Lincoln
-      | 349A Hardin Hall
+      | 343D Hardin Hall
       | 3310 Holdrege St
       | Lincoln, NE 68588
     email: \email{susan.vanderplas@unl.edu}
@@ -240,7 +240,9 @@ reference_deleted <- reference %>%
 
 reference_detrend <- reference %>%
   impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
-  preProcess_removeTrend(statistic = "quantile",tau = .5,method = "fn") %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
   x3ptools::x3p_sample(m = 4)
 
 reference_filtered <- reference %>%
