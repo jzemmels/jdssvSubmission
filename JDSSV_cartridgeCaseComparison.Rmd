@@ -69,7 +69,7 @@ options(prompt = 'R> ', continue = '+ ')
 knitr::opts_chunk$set(echo = "FALSE")
 
 library(cmcR)
-library(impressions)
+library(impressions) # remotes::install_github("jzemmels/impressions")
 library(scored) # remotes::install_github("jzemmels/scored")
 
 library(x3ptools)
