@@ -77,69 +77,6 @@ library(scored) # remotes::install_github("jzemmels/scored")
 library(x3ptools)
 library(tidyverse)
 library(patchwork)
-
-purple_to_orange <- rev(c("#7f3b08", "#b35806", "#e08214", 
-                          "#fdb863", "#fee0b6", "#f7f7f7", "#d8daeb", 
-                          "#b2abd2", "#8073ac", "#542788", "#2d004b"))
-
-x3pPlt_horizontal <- function (
-    x3pList, legend.quantiles = c(0, 0.01, 0.25, 0.5, 0.75, 0.99, 1), 
-    height.quantiles = c(0, 0.01, 0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975, 0.99, 1), 
-    height.colors = purple_to_orange, na.value = "gray65") 
-{
-  
-  plts <- purrr::pmap(.l = list(x3pList, names(x3pList)), 
-                      function(x3p, name) {
-                        surfaceMat_df <- x3p %>% x3ptools::x3p_to_df() %>% 
-                          dplyr::mutate(xnew = max(.data$y) - .data$y, 
-                                        ynew = max(.data$x) - .data$x, value = .data$value - 
-                                          median(.data$value, na.rm = TRUE)) %>% 
-                          dplyr::select(-c(.data$x, .data$y)) %>% dplyr::rename(x = .data$xnew, 
-                                                                                y = .data$ynew) %>% dplyr::mutate(value = .data$value - 
-                                                                                                                    median(.data$value, na.rm = TRUE)) %>% dplyr::mutate(x3p = rep(name, 
-                                                                                                                                                                                   times = nrow(.)))
-                        
-                        surfaceMat_df %>% 
-                          ggplot2::ggplot(ggplot2::aes(x = .data$x, 
-                                                       y = .data$y)) + 
-                          ggplot2::geom_raster(ggplot2::aes(fill = .data$value)) + 
-                          ggplot2::scale_fill_gradientn(colours = height.colors, 
-                                                        values = scales::rescale(quantile(surfaceMat_df$value, 
-                                                                                          c(0, 0.01, 0.025, 0.1, 0.25, 0.5, 0.75, 
-                                                                                            0.9, 0.975, 0.99, 1), na.rm = TRUE)), 
-                                                        breaks = function(lims) {
-                                                          dat <- quantile(surfaceMat_df$value, legend.quantiles, 
-                                                                          na.rm = TRUE)
-                                                          dat <- dat %>% setNames(paste0(names(dat), 
-                                                                                         " [", round(dat, 1), "]"))
-                                                          return(dat)
-                                                        }, na.value = na.value) + ggplot2::theme_minimal() + 
-                          ggplot2::coord_fixed(expand = FALSE) + 
-                          ggplot2::theme(axis.title.x = ggplot2::element_blank(), 
-                                         axis.text.x = ggplot2::element_blank(), axis.ticks.x = ggplot2::element_blank(), 
-                                         axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_blank(), 
-                                         axis.ticks.y = ggplot2::element_blank(), panel.grid.major = ggplot2::element_blank(), 
-                                         panel.grid.minor = ggplot2::element_blank(), 
-                                         panel.background = ggplot2::element_blank(), 
-                                         plot.title = ggplot2::element_text(hjust = 0.5, 
-                                                                            size = 11),
-                                         legend.position = "bottom") +
-                          ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = grid::unit(1.25, 
-                                                                                                "in"), 
-                                                                          barheight = grid::unit(.2,"in"),
-                                                                          label.theme = ggplot2::element_text(size = 6), 
-                                                                          title.theme = ggplot2::element_text(size = 8), 
-                                                                          title.vjust = .8,
-                                                                          frame.colour = "black",
-                                                                          ticks.colour = "black",
-                                                                          direction = "horizontal"), 
-                                          colour = "none") + 
-                          ggplot2::labs(fill = expression("Rel. Height [" * 
-                                                            mu * "m]")) + ggplot2::labs(title = name)
-                      })
-  
-  return(plts)
-}
 ```
 
 # Introduction
@@ -270,8 +207,8 @@ reference_eroded <- reference %>%
                                method = "fn") %>%
   cmcR::preProcess_gaussFilter() %>%
   x3p_sample() %>%
-  preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
-  preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
+  cmcR::preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
+  cmcR::preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
   impressions::x3p_cropWS()
 
 target_eroded <- target %>%
@@ -286,23 +223,40 @@ target_eroded <- target %>%
                                method = "fn") %>%
   cmcR::preProcess_gaussFilter() %>%
   x3p_sample() %>%
-  preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
-  preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
+  cmcR::preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
+  cmcR::preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
   impressions::x3p_cropWS()
 ```
 
-```{r,cache=TRUE,include=FALSE}
-plts <- x3pPlt_horizontal(list("x3p_delete()" = reference_deleted,
-                               "preProcess_removeTrend()" = reference_detrend,
-                               "preProcess_gaussFilter()" = reference_filtered,
-                               "preProcess_erode()" = reference_eroded),
-                          legend.quantiles = c(0,.5,1))
+
+```{r,cache = TRUE,include=FALSE}
+plts <- impressions::x3pPlot(reference_deleted,reference_detrend,reference_filtered,reference_eroded,
+                             x3pNames = c("x3p_delete()","preProcess_removeTrend()",
+                                          "preProcess_gaussFilter()","preProcess_erode()"),
+                             type = "list",
+                             legend.quantiles = c(0,.5,1)) %>%
+  map(~ {
+    . +
+      theme(legend.position = "bottom") +
+      ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = grid::unit(1.25, 
+                                                                            "in"), 
+                                                      barheight = grid::unit(.2,"in"),
+                                                      label.theme = ggplot2::element_text(size = 6), 
+                                                      title.theme = ggplot2::element_text(size = 8), 
+                                                      title.vjust = .8,
+                                                      frame.colour = "black",
+                                                      ticks.colour = "black",
+                                                      direction = "horizontal"), 
+                      colour = "none") + 
+      ggplot2::labs(fill = expression("Rel. Height ["*mu*"m]"))
+  })
 
 plt <- (plts[[1]] | plts[[2]] | plts[[3]] | plts[[4]])
 
 ggsave(plot = plt,filename = "figures/preProcessEffect.png",width = 10,height = 5)
 knitr::plot_crop("figures/preProcessEffect.png")
 ```
+
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:preProcessEffect} We apply a sequence of preprocessing functions to each scan. Each preprocessing step further emphasizes the breech face impressions in the scan."}
 knitr::include_graphics("figures/preProcessEffect.png")
@@ -408,7 +362,6 @@ Calculate rotation $\theta^* = \arg \max_{\theta} \{CCF_{\max,\theta} : \theta \
 \label{alg:registration}
 \end{algorithm}
 ```
-The overall maximum CCF, $CCF_{\max}$, is a similarity measure between $A$ and $B$.
 
 ### Handling Missingness
 
@@ -422,39 +375,33 @@ Thus, when calculating the CCF we impute these missing values with the average n
 We wish to measure the similarity between $A$ and $B$ while taking this missingness into account; to measure the similarity between the non-missing intersection of the aligned scans.
 We compute the *pairwise-complete correlation* using only the complete value pairs, meaning neither value is missing, between $A$ and $B$.
 
-### Whole-Scan Comparison
+### Registration-Based Features
+
+#### Full-Scan Registration
 
 We first estimate the registration between two full scans $A$ and $B$ using \autoref{alg:registration} with a rotation grid $\pmb{\Theta} = \{-30^\circ, -27^\circ,...,27^\circ,30^\circ\}$.
 This results in an estimated registration $(m^*,n^*,\theta^*)$ and similarity measure $CCF_{\max}$.
-<!-- [Tai and Eddy (2017)] propose using a decision boundary for $CCF_{\max}$ to define a binary classifier. --> We then apply the registration transformation $(m^*,n^*,\theta^*)$ to $B$ to obtain $B^*$ and compute the pairwise-complete correlation, $cor_{\text{comp}}$, between $A$ and $B^*$.
+We also perform \autoref{alg:registration} with the roles of $A$ and $B$ reversed, meaning scan $A$ is aligned to $B$ to obtain $A^*$.
 
-From this whole-scan comparison procedure we obtain two features summarized in \autoref{tab:wholeScanComparison}.
-
-```{=tex}
-\begin{table}[htbp]
-\centering
-\begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
-\hline
-\textbf{Notation} & \textbf{Feature Description} \\
-\hline
-$cor_{\text{comp}}$ & Pairwise-complete correlation between two aligned scans \\
-\hline
-\end{tabular}
-\caption{Two similarity features based on estimating the registration of two whole scans.}
-\label{tab:wholeScanComparison}
-\end{table}
-```
+To accommodate these two comparison "directions," we introduce a new subscript $d = 1,2$ representing whether $B$ was aligned to $A$ or vice versa, respectively.
+As such, we obtain two sets of sets of estimated registrations, $(m^*_d,n^*_d,\theta^*_d)$ and $CCF_{\max,d}$ for $d=1,2$.\footnote{In reality, the true aligning registrations in the two comparison directions are opposites of each other. However, because we compare discretely-indexed arrays using a nearest-neighbor interpolation scheme, the estimated registrations differ slightly.}
+For $d = 1$, we then apply the registration transformation $(m^*_1,n^*_1,\theta^*_1)$ to $B$ to obtain $B^*$ and compute the pairwise-complete correlation, $cor_{\text{full},1}$, between $A$ and $B^*$.
+We repeat this in the other comparison direction to obtain $cor_{\text{full},2}$ and average the two:
+\begin{align*}
+\overline{cor}_{\text{full}} = \frac{1}{2}\left(cor_{\text{full},1} + cor_{\text{full},2}\right).
+\end{align*}
+We assume that the **average full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
 
 <!-- \hline -->
 <!-- $CCF_{\max}$ & Maximum value of the cross-correlation function across a grid of rotations \\ -->
 
-### Cell-Based Comparison
+#### Cell-Based Registration
 
-Following the comparison of $A$ and $B^*$, we next perform a cell-based comparison procedure.
-Song (2013) points out that breech face impressions rarely appear uniformly on a cartridge case surface.
+Following the full-scan registration, we next perform a cell-based registration procedure.
+[Song (2013)] points out that breech face impressions rarely appear uniformly on a cartridge case surface.
 Rather, distinguishing markings appear in specific, usually small, regions of a scan (the author refers to these as *valid correlation regions*).
 Calculating a correlation between two whole scans does not necessarily capture the similarity between these regions.
-Song (2013) proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
+[Song (2013)] proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
 \autoref{fig:cellGridExample} shows an example of matrix $A$ partitioned into a grid of $8 \times 8$ cells.
 
 ```{r,cache=TRUE,include=FALSE}
@@ -508,34 +455,35 @@ knitr::include_graphics("figures/cellGridExample.png")
 
 The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "reference" matrix to be partitioned into a grid of cells.
 Each of these reference cells will be compared to the "target" matrix, in this case $B^*$.
-Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each reference cell to $B^*$ using a new rotation grid of $\pmb{\Theta}' = \{\theta^* - 2^\circ, \theta^* - 1^\circ,\theta^*,\theta^* + 1^\circ,\theta^* + 2^\circ\}$.
+Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each reference cell to $B^*$ using a new rotation grid of $\pmb{\Theta}'_1 = \{\theta^*_1 - 2^\circ, \theta^*_1 - 1^\circ,\theta^*_1,\theta^*_1 + 1^\circ,\theta^*_1 + 2^\circ\}$.
+As before, the $d = 1$ subscript here refers to the comparison direction.
 
 We now extend the surface matrix notation introduced previously to accommodate cells.
-Let $A_{t}$ denote the $t$th cell of matrix $A$, $t = 1,...,T$ where $T$ is the total number of cells containing non-missing values (e.g., $T = 38$ in \autoref{fig:cellGridExample}) and let $(a_t)_{ij}$ denote the $i,j$-th element of $A_t$.
-<!-- \footnote{In practice, we number the cells in lexicographic order (left-to-right, top-to-bottom) starting from the top-left.} -->
+Let $A_{t}$ denote the $t$th cell of matrix $A$, $t = 1,...,T_1$ where $T_1$ is the total number of cells containing non-missing values (e.g., $T_1 = 38$ in \autoref{fig:cellGridExample}) in scan $A$ and let $(a_t)_{ij}$ denote the $i,j$-th element of $A_t$.
 
 The cell-based comparison procedure is outlined in \autoref{alg:cellComparison}.
 
 ```{=tex}
 \begin{algorithm}[H]
-\KwData{Reference matrix $A$, target matrix $B^*$, cell grid size $R \times C$, and rotation grid $\pmb{\Theta}'$}
+\KwData{Reference matrix $A$, target matrix $B^*$, cell grid size $R \times C$, and rotation grid $\pmb{\Theta}'_1$}
 \KwResult{Estimated translations and $CCF_{\max}$ values per cell, per rotation}
 Partition $A$ into a grid of $R \times C$ cells\;
-Discard cells containing only missing values, leaving $T$ remaining cells\;
-\For{$\theta \in \pmb{\Theta}'$}{
+Discard cells containing only missing values, leaving $T_1$ remaining cells\;
+\For{$\theta \in \pmb{\Theta}'_1$}{
 Rotate $B^*$ by $\theta$ to obtain $B^*_\theta$\;
-\For{$t = 1,...,T$}{
-Calculate $CCF_{\max, \theta, t} = \max_{m,n} (a_k \star b^*_\theta)_{mn}$\;
-Calculate translation $[m^*_{\theta,t},n^*_{\theta,t}] = \arg \max_{m,n} (a_i \star b^*_\theta)[m,n]$
+\For{$t = 1,...,T_1$}{
+Calculate $CCF_{\max, \theta, t, 1} = \max_{m,n} (a_t \star b^*_\theta)_{mn}$\;
+Calculate translation $[m^*_{\theta,t, 1},n^*_{\theta,t, 1}] = \arg \max_{m,n} (a_t \star b^*_\theta)_{mn}$
 }
 }
-\Return{$\pmb{F} = \{(m^*_{\theta,t},n^*_{\theta,t}, CCF_{\max,\theta,t}, \theta) : \theta \in \pmb{\Theta}', t = 1,...,T\}$}
+\Return{$\pmb{F}_1 = \{(m^*_{\theta,t, 1},n^*_{\theta,t,1}, CCF_{\max,\theta,t, 1}, \theta) : \theta \in \pmb{\Theta}'_1, t = 1,...,T_1\}$}
 \caption{Cell-Based Comparison Procedure}
 \label{alg:cellComparison}
 \end{algorithm}
 ```
-Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}$ of translations and CCF values for each cell and each rotation considered.
-The following assumption justifies this: if two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.\footnote{And that cells will not come to such an agreement for a non-matching pair of cartridge cases} This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
+
+Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_1$ of translations and CCF values for each cell and each rotation considered.
+If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.\footnote{And that cells will not come to such an agreement for a non-matching pair of cartridge cases} This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
 The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[17,-16]$.
 This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
 The task is to determine when cells reach a registration consensus.
@@ -571,15 +519,15 @@ plt <- compData %>%
   filter(direction == "comparison_refToTarget") %>%
   filter(theta >= -3 & theta <= 9) %>%
   ggplot(aes(x=x,y,y)) +
-    geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
-    geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
-    # geom_point() +
-    geom_jitter(width = 3,height = 3, alpha=.8) +
-    coord_fixed(expand = TRUE) +
-    facet_wrap(~ theta,nrow = 1,labeller = label_both) +
-    theme_bw() +
-    labs(x = "horizontal shift n", y = "vertical shift m") +
-    theme(axis.text = element_text(size = 6)) 
+  geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
+  geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
+  # geom_point() +
+  geom_jitter(width = 3,height = 3, alpha=.8) +
+  coord_fixed(expand = TRUE) +
+  facet_wrap(~ theta,nrow = 1,labeller = label_both) +
+  theme_bw() +
+  labs(x = "horizontal shift n", y = "vertical shift m") +
+  theme(axis.text = element_text(size = 6)) 
 ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, height = 3)
 knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 ```
@@ -588,67 +536,71 @@ knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 knitr::include_graphics("figures/estimatedTranslationFaceted.png")
 ```
 
-Just as with the whole-scan comparison, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_\theta,n^*_\theta]$.
-From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}$.
-For $t = 1,...,T$, define the cell-wise maximum CCF and pairwise-complete correlation as: 
+Just as with the whole-scan registration, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_{\theta,1},n^*_{\theta,1}]$.
+From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{\text{cell},\theta,t,1} : \theta \in \pmb{\Theta}'_1\}$.
+This whole procedure is repeated using $B$ as the reference scan and $A^*$ as the target, resulting in registration set $\pmb{F}_2$ and pairwise-complete correlations $\{cor_{\text{cell},\theta,t,2} : \theta \in \pmb{\Theta}'_2\}$.
+
+For $d = 1,2$ and $t = 1,...,T_d$, define the cell-wise maximum CCF and pairwise-complete correlation as: 
 \begin{align*}
-CCF_{\max,t} &= \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\} \\
-cor_{\text{comp},t} &= \max_{\theta} \{cor_{\text{comp},\theta,t} : \theta \in \pmb{\Theta}'\}
+CCF_{\max,t,d} &= \max_{\theta} \{CCF_{\max,\theta,t,d} : \theta \in \pmb{\Theta}'_d\} \\
+cor_{\text{cell},t,d} &= \max_{\theta} \{cor_{\text{cell},\theta,t,d} : \theta \in \pmb{\Theta}'_d\}
 \end{align*}
 
 We compute the following features using the correlation data: 
-
 \begin{align*}
-\overline{cor}_{\text{comp}, \cdot} &= \frac{1}{T} \sum_{t=1}^T cor_{\text{comp},t} \\
-s_{cor}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{\text{comp},t} - \overline{cor}_{\text{comp}, \cdot})^2
+\overline{cor}_{\text{cell}} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d} \sum_{t=1}^{T_d} cor_{\text{cell},t,d} \\
+s_{cor}^2 &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d-1} \sum_{t=1}^{T_d} (cor_{\text{cell},t,d} - \overline{cor}_{\text{cell}, \cdot, \cdot})^2
 \end{align*} 
 
 <!-- \overline{CCF}_{\max, \cdot} &= \frac{1}{T} \sum_{t=1}^T CCF_{\max,t} \\ -->
 <!-- s_{CCF}^2 &= \frac{1}{T-1} \sum_{t=1}^T (CCF_{\max,t} - \overline{CCF}_{\max, \cdot})^2  \\ -->
 
-We expect 
+We expect
 <!-- $\overline{CCF}_{\max, \cdot}$,  -->
-$\overline{cor}_{\text{comp}, \cdot}$ to be large and 
+the \textbf{average cell-based pairwise-complete correlation} to be large and
 <!-- $s_{CCF}^2$,  -->
-$s_{cor}^2$ small for truly matching cartridge case pairs.
+the \textbf{standard deviation of the cell-based pairwise-complete correlations} small for truly matching cartridge case pairs.
 
-For $t = 1,...,T$, define the estimated translations and rotation for $A_k$ as: \begin{align*}
-\theta^*_t &= \arg \max_{\theta} \{CCF_{\max,\theta,t} : \theta \in \pmb{\Theta}'\} \\
-m^*_t &= m^*_{\theta^*_t,t} \\
-n^*_t &= n^*_{\theta^*_t,t}
+For $d = 1,2$ and $t = 1,...,T_d$, define the per-cell estimated translations and rotation as: 
+\begin{align*}
+\theta^*_{t,d} &= \arg \max_{\theta} \{CCF_{\max,\theta,t,d} : \theta \in \pmb{\Theta}'_d\} \\
+m^*_{t,d} &= m^*_{\theta^*_{t,d},t,d} \\
+n^*_{t,d} &= n^*_{\theta^*_{t,d},t,d}
 \end{align*} 
 
 We compute the following additional features using the estimated cell translations and rotations: 
 \begin{align*}
-s_{\theta^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (\theta^*_{t} - \bar{\theta}^*_{\cdot})^2 \\
-s_{m^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (m^*_{t} - \bar{m}^*_{\cdot})^2 \\
-s_{n^*}^2 = \frac{1}{T-1} \sum_{t=1}^T (n^*_{t} - \bar{n}^*_{\cdot})^2 
+s_{\theta^*}^2 = \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d-1} \sum_{t=1}^{T_d} (\theta^*_{t,d} - \bar{\theta}^*_{\cdot,d})^2 \\
+s_{m^*}^2 = \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d-1} \sum_{t=1}^{T_d} (m^*_{t,d} - \bar{m}^*_{\cdot,d})^2 \\
+s_{n^*}^2 = \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d-1} \sum_{t=1}^{T_d} (n^*_{t,d} - \bar{n}^*_{\cdot,d})^2 
 \end{align*} 
-where $\bar{m}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T m^*_{t}$, $\bar{n}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T n^*_{t}$, and $\bar{\theta}^*_{\cdot} = \frac{1}{T} \sum_{t=1}^T \theta^*_{t}$.
-We expect $s_{m^*}^2, s_{n^*}^2, s_{\theta^*}^2$ to be small for truly matching cartridge case pairs.
+where $\bar{m}^*_{\cdot,d} = \frac{1}{T_d} \sum_{t=1}^{T_d} m^*_{t,d}$, $\bar{n}^*_{\cdot,d} = \frac{1}{T_d} \sum_{t=1}^{T_d} n^*_{t,d}$, and $\bar{\theta}^*_{\cdot,d} = \frac{1}{T_d} \sum_{t=1}^{T_d} \theta^*_{t,d}$.
+We expect the \textbf{sample variance of the cell-based estimated registration} values to be small.
 
-From this cell-based comparison procedure, we obtain seven features summarized in \autoref{tab:cellBasedComparison}.
+From the full-scan and cell-based registration procedures, we obtain six features summarized in \autoref{tab:registrationFeatures}.
 
 ```{=tex}
 \begin{table}[htbp]
 \centering
 \begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
 \hline
-\textbf{Notation} & \textbf{Feature Description} \\
+Notation & Feature Description \\
 \hline
-$\overline{cor}_{\text{comp}, \cdot}$ & Average pairwise-complete correlation between each reference cell and its paired region in the target matrix at which the CCF is maximized \\
+$\overline{cor}_{\text{full}}$ & \textbf{Full-scan pairwise-complete correlation} after aligning the scans. \\
 \hline
-$s_{cor}^2$ & Sample variance of the pairwise-complete correlation values between each reference cell and its paired region in the target matrix at which the CCF is maximized \\
+$\overline{cor}_{\text{cell}}$ & \textbf{Average cell-based pairwise-complete correlation} after aligning reference cells to the target matrix using the cross-correlation function \\
 \hline
-$s_{m^*}^2$ & Sample variance of the estimated vertical (row) translations across all cells \\
+$s_{cor}^2$ & \textbf{Sample variance of the cell-based pairwise-complete correlation} after aligning reference cells to the target matrix using the cross-correlation function \\
 \hline
-$s_{n^*}^2$ & Sample variance of the estimated horizontal (column) translations across all cells \\
+$s_{m^*}^2$ & \textbf{Sample variance of the cell-based vertical translations} \\
 \hline
-$s_{\theta^*}^2$ & Sample variance of the estimated rotations across all cells \\
+$s_{n^*}^2$ & \textbf{Sample variance of the cell-based horizontal translations} \\
+\hline
+$s_{\theta^*}^2$ & \textbf{Sample variance of the cell-based rotations} \\
 \hline
 \end{tabular}
-\caption{Seven similarity features based on partitioning a reference scan into a grid of cells and comparing each cell to a target scan.}
-\label{tab:cellBasedComparison}
+\caption{Six similarity features based on registering full scans or cells.}
+\label{tab:registrationFeatures}
 \end{table}
 ```
 
@@ -657,7 +609,7 @@ $s_{\theta^*}^2$ & Sample variance of the estimated rotations across all cells \
 <!-- \hline -->
 <!-- $s_{CCF}^2$ & Sample variance of the maximum CCF values across all cells \\ -->
 
-### Density-Based Spatial Clustering of Applications with Noise
+### Density-Based Features
 
 As discussed in the last section, we wish to identify when multiple cells agree on a particular registration.
 [Zhang et al. (2020)] proposed using the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm to identify clusters of points based on their density.
@@ -772,14 +724,10 @@ knitr::plot_crop("figures/dbscanScatterplot.png")
 ```
 
 \autoref{fig:dbscanScatterplot} shows an example of DBSCAN cluster assignments for the known-match pair $A$ and $B$ shown in \autoref{fig:matchPair}.
-The left scatterplot shows the per-cell estimated translations $[m^*_{\theta,t}, n^*_{\theta,t}]$ for $\theta = 3^\circ$ when scan $A$ is used as reference and $B^*$ as target, resulting a cluster of size 14.
+The left scatterplot shows the per-cell estimated translations $[m^*_{\theta,t,d}, n^*_{\theta,t,d}]$ for $\theta = 3^\circ$ when scan $A$ is used as reference and $B^*$ as target, resulting a cluster of size 14.
 The right scatterplot shows the per-cell estimated translations with the roles of $A$ and $B^*$ reversed: now $B^*$ is partitioned into a grid of reference cells that are compared to $A$, resulting in a cluster of size 13.
 
-We extend the notation introduced earlier with a subscript $d = 1,2$ to accommodate two comparison directions.
-A value of $d = 1$ or $2$ indicates that matrix $A$ or $B^*$ was used as reference, respectively.
-For example, $\pmb{F}_1$ refers to the set of cell-based registration data computed using \autoref{alg:cellComparison} with $A$ as reference.
-
-```{r,out.width=".8\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:dbscanScatterplot} Cluster assignments based on the Density Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm for estimated translations in two comparison directions. Using scan $A$ as reference results in a cluster of size 14 (left) compared to 13 when scan $B$ is used as reference (right). The mean cluster centers in both directions are approximately opposites of each other. Points are jittered for visibility."}
+```{r,out.width=".8\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:dbscanScatterplot} Cluster assignments based on the Density Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm for estimated translations in two comparison directions. Using scan $A$ as reference results in a cluster of size 14 (left) compared to 13 when scan $B$ is used as reference (right). Noting the reversed axes in the right plot, the mean cluster centers in both directions are approximately opposites of each other. Points are jittered for visibility."}
 knitr::include_graphics("figures/dbscanScatterplot.png")
 ```
 
@@ -789,7 +737,8 @@ Indeed, the mean cluster centers in \autoref{fig:dbscanScatterplot} are $(\hat{m
 [Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
 We use DBSCAN differently by calculating numerical features based on the cluster assignments.
 We first use a 2D kernel density estimator [cite kde2d from MASS(?)] to identify the rotation $\hat{\theta}_d$ at which the per-cell translations achieve the highest density.
-Next, we compute clusters using the DBSCAN algorithm.\footnote{If more than one cluster is identified, we binarize the points based on whether they were assigned to any cluster or if they are a noise point and proceed as if there is only one cluster. We assume that two or more clusters form only because of the course rotation grid considered. Were a finer grid used, the points would coalesce into a single cluster around the true translation value. This assumption has empirical support through our experimentation.} Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
+Next, we compute clusters using the DBSCAN algorithm amongst the estimated translations $\{(m^*_{\hat{\theta}_d,t,d},n^*_{\hat{\theta}_d,t,d}) : t = 1,...,T_d\}$ like those shown in \autoref{fig:dbscanScatterplot}.\footnote{If more than one cluster is identified, we binarize the points based on whether they were assigned to any cluster or if they are a noise point and proceed as if there is only one cluster. We assume that two or more clusters form only because of the course rotation grid considered. Were a finer grid used, the points would coalesce into a single cluster around the true translation value. This assumption has empirical support through our experimentation.} 
+Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
 We treat the mean cluster centers as the estimated translations $[\hat{m}_d,\hat{n}_d]$.
 Finally, we compute the following features:
 \begin{align*}
@@ -797,8 +746,7 @@ C &= \frac{1}{2}\left(|\pmb{C}_1| + |\pmb{C}_2|\right) \\
 \Delta_\theta &= |\hat{\theta}_1 + \hat{\theta}_2| \\
 \Delta_{trans} &= \sqrt{(\hat{m}_1 + \hat{m}_2)^2 + (\hat{n}_1 + \hat{n}_2)^2}
 \end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$.
-For truly matching cartridge case pairs, we expect $C$ to be large and $\Delta_{trans}, \Delta_\theta$ to be small.
-If no cluster is identified by the DBSCAN algorithm, we use conservative values for these three features (e.g., $\Delta_{trans} = 1000$).
+For truly matching cartridge case pairs, we expect the \textbf{average DBSCAN cluster size} to be large and the \textbf{difference in the density-estimated registrations} to be small.
 
 From this DBSCAN procedure, we obtain three features summarized in \autoref{tab:dbscanFeatures}.
 
@@ -807,13 +755,13 @@ From this DBSCAN procedure, we obtain three features summarized in \autoref{tab:
 \centering
 \begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
 \hline
-\textbf{Notation} & \textbf{Feature Description} \\
+Notation & Feature Description \\
 \hline
-$C$ & DBSCAN cluster sizes, averaged over two comparison directions \\
+$C$ & \textbf{Average DBSCAN cluster size} across both comparison directions \\
 \hline
-$\Delta_\theta$ & Absolute sum of the density-estimated rotations in both comparison directions  \\
+$\Delta_\theta$ & \textbf{Absolute sum of the density-estimated rotations} between both comparison directions  \\
 \hline
-$\Delta_{trans}$ & Root sum of squares of the cluster-estimated translations in both comparison directions \\
+$\Delta_{trans}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions \\
 \hline
 \end{tabular}
 \caption{Three similarity features based on clustering the cell-wise estimated registrations using the DBSCAN algorithm.}
@@ -848,34 +796,39 @@ This filtered element-wise average emphasizes similarities between $A$ and $B^*$
 The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
 These plots emphasize the differences between the two scans.
 The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
+We repeat this in the other comparison direction $(d = 2)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| < \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
 
 ```{r,cache=TRUE,include=FALSE}
-compData_fullScans <- 
-  bind_rows(map_dfr(seq(-30,30,by = 3),
-                    ~ cmcR::comparison_allTogether(reference = reference_eroded,
-                                                   target = target_eroded,
-                                                   theta = .,
-                                                   numCells = c(1,1),
-                                                   maxMissingProp = .99,
-                                                   sideLengthMultiplier = 1.1,
-                                                   returnX3Ps = TRUE)) %>%
-              mutate(direction = "comparison_refToTarget") %>%
-              filter(pairwiseCompCor == max(pairwiseCompCor)),
-            map_dfr(seq(-30,30,by = 3),
-                    ~ cmcR::comparison_allTogether(reference = target_eroded,
-                                                   target = reference_eroded,
-                                                   theta = .,
-                                                   numCells = c(1,1),
-                                                   maxMissingProp = .99,
-                                                   sideLengthMultiplier = 1.1,
-                                                   returnX3Ps = TRUE)) %>%
-              mutate(direction = "comparison_targetToRef") %>%
-              filter(pairwiseCompCor == max(pairwiseCompCor)))
-
-save(compData_fullScans,file = "data/compData_fullScans.RData")
+if(!file.exists("data/compData_fullScans.RData")){
+  compData_fullScans <- 
+    bind_rows(map_dfr(seq(-30,30,by = 3),
+                      ~ cmcR::comparison_allTogether(reference = reference_eroded,
+                                                     target = target_eroded,
+                                                     theta = .,
+                                                     numCells = c(1,1),
+                                                     maxMissingProp = .99,
+                                                     sideLengthMultiplier = 1.1,
+                                                     returnX3Ps = TRUE)) %>%
+                mutate(direction = "comparison_refToTarget") %>%
+                filter(pairwiseCompCor == max(pairwiseCompCor)),
+              map_dfr(seq(-30,30,by = 3),
+                      ~ cmcR::comparison_allTogether(reference = target_eroded,
+                                                     target = reference_eroded,
+                                                     theta = .,
+                                                     numCells = c(1,1),
+                                                     maxMissingProp = .99,
+                                                     sideLengthMultiplier = 1.1,
+                                                     returnX3Ps = TRUE)) %>%
+                mutate(direction = "comparison_targetToRef") %>%
+                filter(pairwiseCompCor == max(pairwiseCompCor)))
+  
+  save(compData_fullScans,file = "data/compData_fullScans.RData")
+}
 ```
 
 ```{r,cache=TRUE,include=FALSE}
+load("data/compData_fullScans.RData")
+
 scanA <- compData_fullScans %>%
   filter(direction == "comparison_refToTarget") %>%
   pull(cellHeightValues) %>%
@@ -912,21 +865,25 @@ knitr::include_graphics("figures/fullScan_comparisonPlot.png")
 ```
 
 We make a series of qualitative assumptions related to how a Complementary Comparison Plot will look for matching and non-matching cartridge case pairs.
-These assumptions lead to a set of features that quantify these assumptions.
+We develop a set of features that measure the degree to which these assumptions are met by a particular cartridge case pair.
 We now describe each feature and their associated assumptions.
 
-We first consider the correlation $cor_{filt}$ between the filtered surface matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B)$.
-We assume that $cor_{filt}$ will be larger for truly matching $A$ and $B$ than non-matching.
-Said another way, we assume that even regions of $A$ and $B$ that are different will follow similar trends, which can occur due to variability in the amount of contact between a cartridge case and breech face across multiple fires of a single firearm.
+We first consider the correlation $cor_{\text{full},\text{filt},d}$ between the filtered matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ when $d = 1$ and $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$ when $d = 2$.
+The average of these is used as a feature:
+\begin{align*}
+\overline{cor}_{\text{full},\text{filt}} = \frac{1}{2}\left(cor_{\text{full},\text{filt},1} + cor_{\text{full},\text{filt},2}\right).
+\end{align*}
+We assume that $\overline{cor}_{\text{full},\text{filt}}$ will be larger for truly matching $A$ and $B$ than non-matching.
+Said another way, we assume that even surface regions of $A$ and $B$ that are different will follow similar trends, which can occur due to variability in the amount of contact between a cartridge case and breech face across multiple fires of a single firearm.
 The correlation is calculated by vectorizing the two filtered surface matrices and treating missing values by case-wise deletion.
 
-As before, we extend this notation to accommodate cell comparisons $t = 1,...,T$ using subscripts: $cor_{filt,t}$.
-For example, $cor_{filt,1}$ is the correlation between cell filtered surface matrices $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(A_1)$ and $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(B_{\theta_1^*,1}^*)$ where $B_{\theta_1^*,1}^*$ is the alignment of cell $A_1$ in surface matrix $B^*$ that maximizes the CCF.
+As before, we extend this notation to accommodate cell comparisons $t = 1,...,T_d$ for $d = 1,2$ using subscripts: $cor_{filt,t,d}$.
+For example, $cor_{\text{filt},1,1}$ is the correlation between cell filtered surface matrices $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(A_1)$ and $\mathcal{F}_{|A_1 - B_{\theta_1^*,1}^*| > \tau}(B_{\theta_1^*,1}^*)$ where $B_{\theta_1^*,1}^*$ is the alignment of cell $A_1$ in surface matrix $B^*$ that maximizes the CCF.
 We calculate the sample mean 
 <!-- and variance  -->
-of the filtered correlation values across all cells:
+of the filtered correlation values across all cells and both directions:
 \begin{align*}
-\overline{cor}_{filt,\cdot} &= \frac{1}{T} \sum_{t=1}^T cor_{filt,t}
+\overline{cor}_{\text{cell},\text{filt}} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d} \sum_{t=1}^{T_d} cor_{\text{filt},t,d}
 \end{align*}
 
 <!-- s_{cor_{filt,\cdot}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{filt,t} - \overline{cor}_{filt,\cdot})^2. -->
@@ -934,8 +891,8 @@ of the filtered correlation values across all cells:
 Next, we consider features based on the elements of the Boolean $cond$ matrix.
 Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| < \tau$ visualized in black-and-white in the middle where filtered elements are shown in white.
 We use a connected components labeling algorithm detailed in [Haralick and Shapiro (1992)] to identify individual neighborhoods of filtered elements.
-More precisely, the algorithm returns a set of sets $\pmb{S} = \{S_1,S_2,...,S_L\}$ where each $S_l$ is a set of indices of the matrix $|A - B^*| < \tau$ that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
-The right side of \autoref{fig:filterLabeling} shows each $S_l$ distinguished by different fill colors, $l = 1,...,L$.
+More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{1,d},S_{2,d},...,S_{L_d,d}\}$ where each $S_{l,d}$ is a set of indices of the $cond$ matrix that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
+The right side of \autoref{fig:filterLabeling} shows each $S_{l,d}$ distinguished by different fill colors, $l = 1,...,L_d$.
 
 ```{r,include=FALSE,cache = TRUE}
 plt1 <- ggplot_build(compPlt$patches$plots[[3]])
@@ -997,30 +954,28 @@ knitr::include_graphics("figures/filterLabeling.png")
 
 We calculate the following features using the full-scan labeled neighborhoods:
 \begin{align*}
-\overline{|S|}_{\cdot} &= \frac{1}{L} \sum_{l=1}^L |S_l| \\
-s^2_{|S|, full} &= \frac{1}{L - 1} \sum_{l=1}^L (|S_l| - \overline{|S|}_{\cdot})^2
+\overline{|S|}_{\text{full}} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{L_d} \sum_{l=1}^{L_d} |S_{l,d}| \\
+s^2_{\text{full},|S|} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{L_d - 1} \sum_{l=1}^{L_d} (|S_{l,d}| - \overline{|S|}_{\text{full}})^2
 \end{align*}
-where $|S_l|$ is the size of the set $S_l$.
+where $|S_{l,d}|$ is the size of the set $S_{l,d}$.
 We assume that these features will be small for truly matching cartridge cases.
-That is to say, we assume that the regions of matching $A$ and $B$ that are different will all be small, on average, and vary little in their size.
+That is to say, we assume that the the surface regions of $A$ and $B$ that are different will all be small, on average, and vary little in size.
 This assumption is appropriate assuming that the breech face leaves consistent markings on fired cartridge cases.
 
 Again, we extend the notation to accommodate individual cells.
-Let $\pmb{S}_t = \{S_{t,1},...,S_{t,L}\}$ denote the set of labeled neighborhoods for a cell $t = 1,...,T$.
+Let $\pmb{S}_{t,d} = \{S_{t,d,1},...,S_{t,d,L_{t,d}}\}$ denote the set of labeled neighborhoods for a cell $t = 1,...,T_d$, $d = 1,2$.
 \begin{align*}
-\overline{|S|}_{t,\cdot} &= \frac{1}{L} \sum_{l=1}^L |S_{t,l}| \\
-s^2_{|S|, t} &= \frac{1}{L - 1} \sum_{l=1}^L (|S_{t,l}| - \overline{|S|}_{t,\cdot})^2.
+\overline{|S|}_{\text{cell},t,d} &= \frac{1}{L_{t,d}} \sum_{l=1}^L |S_{t,d,l}| \\
+s^2_{\text{cell},|S|,t,d} &= \frac{1}{L_{t,d} - 1} \sum_{l=1}^{L_{t,d}} (|S_{t,d,l}| - \overline{|S|}_{\text{cell},t,d})^2.
 \end{align*}
 
-Similar to the assumptions made for $\overline{|S|}_{\cdot}$ and $s^2_{S, full}$, we assume that the cell-based $\overline{|S|}_{t,\cdot}$ and $s^2_{S, t}$ will be small, on average.
-Consequently, we calculate the sample average and variance of these features:
+We assume that the cell-based $\overline{|S|}_{\text{cell},t,d}$ and $s^2_{\text{cell},|S|,t,d}$ will be small, on average, for truly matching cartridge cases.
+Consequently, we use the sample average of these as features:
 \begin{align*}
-\overline{|S|}_{\cdot,\cdot} &= \frac{1}{T} \sum_{t=1}^T \overline{|S|}_{t,\cdot} \\
-\bar{s}^2_{|S|,\cdot} &= \frac{1}{T} \sum_{t=1}^T s^2_{S, t}
+\overline{|S|}_{\text{cell}} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d} \sum_{t=1}^{T_d} \overline{|S|}_{\text{cell},t,d} \\
+\bar{s}^2_{\text{cell},|S|} &= \frac{1}{2} \sum_{d=1}^2 \frac{1}{T_d} \sum_{t=1}^{T_d} s^2_{\text{cell},|S|,t,d}
 \end{align*}
-Again, we assume that these 
-<!-- four  -->
-two features will be small for truly matching cartridge cases.
+Again, we assume that the \textbf{average cell-wise neighborhood size} and the \textbf{average sample variance of the cell-wise neighborhood sizes} will be small for truly matching cartridge cases.
 
 <!-- s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\ -->
 <!-- s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2. -->
@@ -1032,19 +987,19 @@ two features will be small for truly matching cartridge cases.
 \centering
 \begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
 \hline
-\textbf{Notation} & \textbf{Feature Description} \\
+Notation & Feature Description \\
 \hline
-$cor_{filt}$ & Pairwise-complete between different regions of full aligned scans \\
+$\overline{cor}_{\text{full},\text{filt}}$ & \textbf{Average filtered full-scan correlation} across both comparison directions \\
 \hline
-$\overline{cor}_{filt,\cdot}$ & Average pairwise-complete correlation between different regions of aligned cells \\
+$\overline{cor}_{\text{cell},\text{filt}}$ & \textbf{Average filtered cell-wise correlation} across all cells in both comparison directions \\
 \hline
-$\overline{|S|}_{\cdot}$ & Full scan, sample mean of labeled neighborhood sizes \\
+$\overline{|S|}_{\text{full}}$ & \textbf{Average filtered full-scan neighborhood size} across both comparison directions \\
 \hline
-$s^2_{|S|, full}$ & Full scan, sample variance of labeled neighborhood sizes \\
+$s^2_{\text{full},|S|}$ & \textbf{Sample variance of the filtered full-scan neighborhood sizes} across both comparison directions \\
 \hline
-$\overline{|S|}_{\cdot,\cdot}$ & Cell-based, sample average of the sample averages of labeled neighborhood sizes \\
+$\overline{|S|}_{\text{cell}}$ & \textbf{Average filtered cell-wise neighborhood sizes} across all cells in both comparison directions \\
 \hline
-$\bar{s}^2_{|S|,\cdot}$ & Cell-based, sample average of the sample variances of the labeled neighborhood sizes \\
+$\bar{s}^2_{\text{cell},|S|}$ & \textbf{Average sample variance of the cell-wise neighborhood sizes} across all cells in both comparison direction \\
 \hline
 \end{tabular}
 \caption{Seven similarity features calculated based on visual diagnostics.}
