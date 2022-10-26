@@ -1,0 +1,462 @@
+---
+title: "R Notebook"
+---
+
+```{r setup}
+library(tidyverse)
+library(randomForest)
+library(rpart)
+
+library(caret)
+
+load("caretData_fullAlignedScanCropped_train.RData")
+load("caretData_fullAlignedScanCropped_test.RData")
+
+caretData <- caretData %>%
+  mutate(type = ifelse(type == 1,"match","non-match"))
+```
+
+# Fit models with full data
+
+```{r}
+randomForestFit <- randomForest::randomForest(formula = type ~ .,
+                                              data = caretData)
+
+caretData_test %>%
+  mutate(pred = predict(randomForestFit,caretData_test)) %>%
+  select(type,pred) %>%
+  summarise(errorRate = mean(type != pred))
+
+caretData_test %>%
+  mutate(pred = predict(randomForestFit,caretData_test)) %>%
+  select(type,pred) %>%
+  table()
+```
+
+
+
+```{r}
+set.seed(10192022)
+
+randomForest_caret_allFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData))),
+                                              ceiling(sqrt(ncol(caretData))),
+                                              12,23)),
+               method = "rf")
+
+
+randomForest_caret_allFeatures
+
+save(randomForest_caret_allFeatures,file = "randomForest_caret_allFeatures.RData")
+
+cartModel_caret_allFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "rpart")
+
+cartModel_caret_allFeatures
+
+save(cartModel_caret_allFeatures,file = "cartModel_caret_allFeatures.RData")
+
+logisticReg_caret_allFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "glm",
+               family = "binomial")
+
+save(logisticReg_caret_allFeatures,file = "logisticReg_caret_allFeatures.RData")
+```
+
+
+
+
+
+# Fit model while removing features that aren't deemed "discriminatory"
+
+
+```{r}
+caretData %>%
+  pivot_longer(cols = 1:23) %>%
+  ggplot(aes(x = value,fill=type)) +
+  geom_density(alpha = .5) +
+  facet_wrap(~ name,scales = "free")
+```
+
+```{r}
+caretData_fewerFeatures <- 
+  caretData %>%
+  select(-c(contains("ccf"),
+            cell_x_mean,
+            cell_y_mean,
+            cell_theta_mean,
+            cell_differenceCor_ave_sd))
+
+randomForest_caret_fewerFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_fewerFeatures))),
+                                              ceiling(sqrt(ncol(caretData_fewerFeatures))),
+                                              12,23)),
+               method = "rf")
+
+save(randomForest_caret_fewerFeatures,file = "randomForest_caret_fewerFeatures.RData")
+
+cartModel_caret_fewerFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "rpart")
+
+
+
+save(cartModel_caret_fewerFeatures,file = "cartModel_caret_fewerFeatures.RData")
+
+logisticReg_caret_fewerFeatures <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "glm",
+               family = "binomial")
+
+save(logisticReg_caret_fewerFeatures,file = "logisticReg_caret_fewerFeatures.RData")
+```
+
+# Compare fits with all/fewer features
+
+```{r}
+load("randomForest_caret_allFeatures.RData")
+load("randomForest_caret_fewerFeatures.RData")
+
+randomForest_caret_allFeatures
+randomForest_caret_fewerFeatures
+```
+
+
+```{r}
+load("cartModel_caret_allFeatures.RData")
+load("cartModel_caret_fewerFeatures.RData")
+
+cartModel_caret_allFeatures
+cartModel_caret_fewerFeatures
+```
+
+```{r}
+load("logisticReg_caret_fewerFeatures.RData")
+load("logisticReg_caret_allFeatures.RData")
+
+logisticReg_caret_fewerFeatures
+logisticReg_caret_allFeatures
+```
+
+
+# Fit models without the noClusterInd feature
+
+```{r}
+caretData_noClusterInd <- 
+  caretData %>%
+  select(-c(contains("ccf"),
+            cell_x_mean,
+            cell_y_mean,
+            cell_theta_mean,
+            cell_differenceCor_ave_sd,
+            noClusterInd))
+
+randomForest_caret_noClusterInd <- 
+  caret::train(form = type ~ .,
+               data = caretData_noClusterInd %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_noClusterInd))),
+                                              ceiling(sqrt(ncol(caretData_noClusterInd))),
+                                              12,23)),
+               method = "rf")
+
+save(randomForest_caret_noClusterInd,file = "randomForest_caret_noClusterInd.RData")
+
+cartModel_caret_noClusterInd <- 
+  caret::train(form = type ~ .,
+               data = caretData_noClusterInd %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "rpart")
+
+
+
+save(cartModel_caret_noClusterInd,file = "cartModel_caret_noClusterInd.RData")
+
+logisticReg_caret_noClusterInd <- 
+  caret::train(form = type ~ .,
+               data = caretData_noClusterInd %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "glm",
+               family = "binomial")
+
+save(logisticReg_caret_noClusterInd,file = "logisticReg_caret_noClusterInd.RData")
+```
+
+
+# Fit models without the CMC-related features
+
+```{r}
+caretData_noCMC <- 
+  caretData %>%
+  select(-c(contains("ccf"),
+            cell_x_mean,
+            cell_y_mean,
+            cell_theta_mean,
+            cell_differenceCor_ave_sd,
+            #no CMC features either
+            pairwiseCompCor,
+            cell_pairwiseCompCor_mean,
+            cell_pairwiseCompCor_sd,
+            cell_x_sd,
+            cell_y_sd,
+            cell_theta_sd))
+
+randomForest_caret_noCMC <- 
+  caret::train(form = type ~ .,
+               data = caretData_noCMC %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_noCMC))),
+                                              ceiling(sqrt(ncol(caretData_noCMC))),
+                                              12,23)),
+               method = "rf")
+
+save(randomForest_caret_noCMC,file = "randomForest_caret_noCMC.RData")
+
+cartModel_caret_noCMC <- 
+  caret::train(form = type ~ .,
+               data = caretData_noCMC %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "rpart")
+
+
+
+save(cartModel_caret_noCMC,file = "cartModel_caret_noCMC.RData")
+
+logisticReg_caret_noCMC <- 
+  caret::train(form = type ~ .,
+               data = caretData_noCMC %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "glm",
+               family = "binomial")
+
+save(logisticReg_caret_noCMC,file = "logisticReg_caret_noCMC.RData")
+```
+
+# Fit models without the visual diagnostic features
+
+```{r}
+caretData_noVisualDiag <- 
+  caretData %>%
+  select(-c(contains("ccf"),
+            cell_x_mean,
+            cell_y_mean,
+            cell_theta_mean,
+            cell_differenceCor_ave_sd,
+            # No visual diagnostic features either
+            contains("neighborhoodSize"),
+            contains("differenceCor")))
+
+randomForest_caret_noVisualDiag <- 
+  caret::train(form = type ~ .,
+               data = caretData_noVisualDiag %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_noVisualDiag))),
+                                              ceiling(sqrt(ncol(caretData_noVisualDiag))),
+                                              12,23)),
+               method = "rf")
+
+save(randomForest_caret_noVisualDiag,file = "randomForest_caret_noVisualDiag.RData")
+
+cartModel_caret_noVisualDiag <- 
+  caret::train(form = type ~ .,
+               data = caretData_noVisualDiag %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "rpart")
+
+
+
+save(cartModel_caret_noVisualDiag,file = "cartModel_caret_noVisualDiag.RData")
+
+logisticReg_caret_noVisualDiag <- 
+  caret::train(form = type ~ .,
+               data = caretData_noVisualDiag %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        savePredictions = TRUE),
+               method = "glm",
+               family = "binomial")
+
+save(logisticReg_caret_noVisualDiag,file = "logisticReg_caret_noVisualDiag.RData")
+```
+
+# Repeat fit of random forest 10 times to get variable importance variability
+
+```{r,eval=FALSE}
+rf_repeated <- data.frame(seed = floor(runif(n = 10,min = 10000,max = 100000))) 
+
+rf_repeated <- rf_repeated %>%
+  mutate(
+    rfFit = map(seed, ~{
+      
+      set.seed(.)
+      
+      randomForest::randomForest(formula = type ~ .,
+                                 data = caretData_fewerFeatures %>%
+                                   mutate(type = factor(type)))
+      
+    }))
+
+save(rf_repeated,file = "rf_repeated.RData")
+
+rf_varImpData <- rf_repeated$rfFit %>%
+  map_dfr(~ {
+    
+    invisible({
+      plt <- varImpPlot(.)
+    })
+    
+    tibble(varName = names(plt[,1]),
+           varImportance = plt[,1])
+    
+  }) 
+
+rf_varImpData %>%
+  group_by(varName) %>%
+  mutate(varName = case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
+                             varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation",
+                             varName == "clusterSize_ave" ~ "Cluster Size",
+                             varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
+                             varName == "thetaDiff" ~ "Estimated Rotation Difference",
+                             varName == "cell_x_sd" ~ "Cell-Based Vertical Translation SD",
+                             varName == "pairwiseCompCor" ~ "Full-Scan Pairwise Complete Correlation",
+                             varName == "clustCenterDiff" ~ "Estimated Transltaion Difference",
+                             varName == "fullScan_neighborhoodSizeAve_ave" ~ "Full-Scan Average Labeled Neighborhood Size",
+                             varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
+                             varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
+                             varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                             varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
+                             varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation",
+                             varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Corr. SD",
+                             varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                             TRUE ~ "")) %>%
+  ggplot(aes(x = reorder(varName,varImportance),
+             y = varImportance)) +
+  geom_boxplot() +
+  # geom_point() +
+  # geom_jitter(width = .1,height = 0) +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "Variable Name",
+       y = "Mean Gini Index Decrease (Log Scale)") +
+  scale_x_discrete(labels = function(x) str_wrap(x,width = 30)) +
+  scale_y_log10()
+```
+
+```{r}
+randomForest_caret_allFeatures
+randomForest_caret_noClusterInd
+randomForest_caret_noCMC
+randomForest_caret_noVisualDiag
+```
+
+
+```{r}
+cartModel_caret_allFeatures
+cartModel_caret_fewerFeatures
+cartModel_caret_noClusterInd
+cartModel_caret_noCMC
+cartModel_caret_noVisualDiag
+```
+
+```{r}
+logisticReg_caret_allFeatures
+logisticReg_caret_fewerFeatures
+logisticReg_caret_noClusterInd
+logisticReg_caret_noCMC
+logisticReg_caret_noVisualDiag
+```
+

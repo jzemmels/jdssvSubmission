@@ -1,0 +1,109 @@
+---
+title: "R Notebook"
+---
+
+```{r setup}
+library(tidyverse)
+load("caretModels.RData")
+```
+
+# Training accuracy data
+
+```{r}
+accuracyData <- caretModels %>%
+  pmap_dfr(~ {
+    
+    ..3$results %>%
+      mutate(modelType = ..1,
+             featureGroup = ..2) %>%
+      select(modelType,featureGroup,everything())
+    
+  }) %>%
+  mutate(cp = as.character(cp),
+         mtry = as.character(mtry)) %>%
+  pivot_longer(cols = c("cp","mtry","parameter"),
+               names_to = "paramName",values_to  = "paramValue") %>%
+  filter(!is.na(paramValue))
+
+accuracyData
+
+save(accuracyData,file = "accuracyData.RData")
+```
+
+
+# Variable importance data
+
+```{r}
+load("rf_repeated.RData")
+
+varImportanceData <- rf_repeated$rfFit %>%
+  map_dfr(~ {
+    
+    invisible({
+      plt <- randomForest::varImpPlot(.)
+    })
+    
+    tibble(varName = names(plt[,1]),
+           varImportance = plt[,1])
+    
+  }) %>%
+  mutate(varName = 
+           case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
+                     varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation",
+                     varName == "clusterSize_ave" ~ "Cluster Size",
+                     varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
+                     varName == "thetaDiff" ~ "Estimated Rotation Difference",
+                     varName == "cell_x_sd" ~ "Cell-Based Vertical Translation SD",
+                     varName == "pairwiseCompCor" ~ "Full-Scan Pairwise Complete Correlation",
+                     varName == "clustCenterDiff" ~ "Estimated Translation Difference",
+                     varName == "fullScan_neighborhoodSizeAve_ave" ~ "Full-Scan Average Labeled Neighborhood Size",
+                     varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
+                     varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                     varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation",
+                     varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Corr. SD",
+                     varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     TRUE ~ ""),
+         iterate = rep(1:10,each = 16))
+
+
+save(varImportanceData,file = "varImportanceData.RData")
+```
+
+# CART Decision tree plot
+
+```{r,eval=FALSE}
+rpart.plot::rpart.plot(cartModel_caret_allFeatures$finalModel,type=2,digits=3)
+```
+
+
+# Testing data accuracy
+
+```{r}
+load("caretData_fullAlignedScanCropped_test.RData")
+
+testAccuracy <- caretModels %>%
+  pmap_dfr(~ {
+    
+    caretData_test %>%
+      mutate(predClass = predict(..3,newdata = caretData_test)) %>%
+      select(type,predClass) %>%
+      summarize(
+        errorRate = mean(type != predClass),
+        falsePos = sum(type == "non-match" & predClass == "match")/sum(type == "non-match"),
+        falseNeg = sum(type == "match" & predClass == "non-match")/sum(type == "match")) %>%
+      mutate(modelType = ..1,
+             featureGroup = ..2) %>%
+      select(modelType,featureGroup,everything())
+    
+  })%>%
+  mutate(Accuracy = 1 - errorRate,
+         truePos = 1 - falseNeg,
+         trueNeg = 1 - falsePos)
+
+save(testAccuracy,file = "testAccuracy.RData")
+```
+
+
+
