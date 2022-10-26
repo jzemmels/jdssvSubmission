@@ -66,7 +66,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 options(prompt = 'R> ', continue = '+ ')
-knitr::opts_chunk$set(echo = "FALSE")
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r load-libraries, cache = FALSE, include = FALSE}
@@ -1021,71 +1021,140 @@ $\bar{s}^2_{\text{cell},|S|}$ & \textbf{Average sample variance of the cell-wise
 
 ## Scoring
 
-We randomly split the data set into \# barrels for training and \# barrels for testing.
-In our case, this resulted in a training data set of 200 cartridge cases, $\binom{200}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
+We randomly split the cartridge case data set into 10 barrels for training and 15 barrels for testing.
+Multiple cartridge cases were fired from each barrel, so this resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
 
-We use the [caret] package to perform 10-fold cross-validation repeated three times to train classifiers.
-We compare the results of training a Classification and Regression Tree (CART) model vs. a random forest.
+We perform 10-fold cross-validation to train binary classifiers.
+We compare the results of three classifiers: based on a logistic regression, a Classification and Regression Tree (CART) model, and a random forest \citep{R,rpart,randomForest,caret}.
+The following sections detail the results of this cross-validation procedure.
 
 # Results
 
 ## Training Results
 
-\autoref{tab:trainingAccuracy} shows the cross-validation estimated accuracies, including the false positive and false negative error rates, for the CART and random forest models.
+\autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracies, including the false positive and false negative error rates, for the CART and random forest models.
 In this application, a false positive is a non-match cartridge case pair that is predicted to be a match.
 A false negative is a match cartridge case pair predicted to be a non-match.
 
-```{=tex}
-\begin{table}[htbp]
-\centering
-\begin{tabular}{|l|r|r|r|}
-\hline
-\textbf{Model} & \textbf{Overall Error} (\%) & \textbf{False Positive} (\%) & \textbf{False Negative} (\%) \\
-\hline
-CART & 1.6 & 0.3 & 13.4  \\
-Random Forest & 1.2 & 0.2 & 10.0 \\
-\hline
-\end{tabular}
-\caption{Cross-validation estimated error rates for CART and and random forest models.}
-\label{tab:trainingAccuracy}
-\end{table}
+
+```{r,include=FALSE}
+load("data/accuracyData.RData")
+
+plt <- accuracyData %>%
+  group_by(modelType,featureGroup) %>%
+  filter(Accuracy == max(Accuracy)) %>%
+  mutate(Accuracy = round(Accuracy,3)) %>%
+  select(modelType,featureGroup,Accuracy) %>%
+  mutate(featureGroup = factor(featureGroup,
+                               levels = c("All Features",
+                                          "Non-discriminatory features removed",
+                                          "Non-discriminatory + noClusterInd features removed",
+                                          "Non-discriminatory + CMC features removed",
+                                          "Non-discriminatory + Visual Diagnostic features removed"))) %>%
+  arrange(featureGroup,modelType) %>%
+  ggplot(aes(x = Accuracy,y = modelType)) +
+  geom_point(size = 2) +
+  geom_segment(aes(x=.96,xend=Accuracy,y=modelType,yend=modelType)) +
+  facet_wrap(~featureGroup,ncol = 1) +
+  theme_bw() +
+  scale_x_continuous(limits = c(.96,.991),
+                     expand = expansion(0),
+                     labels = scales::percent) +
+  labs(y = "Model Type")
+
+ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 5,width = 7)
+
+# %>%
+#   knitr::kable(format = "latex",
+#                align = c("|l","r|"),
+#                caption = "Estimated out-of-bag model accuracy based on 10-fold cross validation repeated thrice per model.",
+#                label = "trainingAccuracy",
+#                col.names = c("Model Type","Feature Group","Accuracy"))
 ```
+
+```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for three models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removal of the non-discriminatory features has little effect on the accuracy across models.',fig.pos="htbp",out.width=".8\\textwidth"}
+knitr::include_graphics("figures/trainingAccuracy.png")
+```
+
+
+<!-- ```{=tex} -->
+<!-- \begin{table}[htbp] -->
+<!-- \centering -->
+<!-- \begin{tabular}{|l|r|r|r|} -->
+<!-- \hline -->
+<!-- \textbf{Model} & \textbf{Overall Error} (\%) & \textbf{False Positive} (\%) & \textbf{False Negative} (\%) \\ -->
+<!-- \hline -->
+<!-- CART & 1.6 & 0.3 & 13.4  \\ -->
+<!-- Random Forest & 1.2 & 0.2 & 10.0 \\ -->
+<!-- \hline -->
+<!-- \end{tabular} -->
+<!-- \caption{Cross-validation estimated error rates for CART and and random forest models.} -->
+<!-- \label{tab:trainingAccuracy} -->
+<!-- \end{table} -->
+<!-- ``` -->
+
 \autoref{fig:trainedCART} shows the trained CART model.
 For each node, The first line is the predicted class if it were treated as a terminal node.
 The second line is the estimated probability that an observation is a non-match given that it falls into the node.
 The third line is the percentage of all observations that fall into the node.
-The first split is based on the feature $C$, the size of the DBSCAN clusters averaged across both comparison directions.
-If a cartridge case pair has an associated $C$ value greater than or equal to 5.3, then the pair is classified as a match (left-most node).
-Otherwise, the value of $\overline{CCF}_{\max,\cdot}$ for this pair is considered, after which either `blobSize\_full` or $C$ is considered, and so on.
+<!-- The first split is based on the feature $C$, the size of the DBSCAN clusters averaged across both comparison directions. -->
+<!-- If a cartridge case pair has an associated $C$ value greater than or equal to 5.3, then the pair is classified as a match (left-most node). -->
+<!-- Otherwise, the value of $\overline{CCF}_{\max,\cdot}$ for this pair is considered, after which either `blobSize\_full` or $C$ is considered, and so on. -->
+
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
-knitr::include_graphics("images/trainedCART.png")
+# knitr::include_graphics("images/trainedCART.png")
+knitr::include_graphics("figures/cartModel_allFeatures.png")
 ```
 
-```{=tex}
-\begin{table}[htbp]
-\centering
-\begin{tabular}{|l|r|}
-\hline
-\textbf{Feature Name} & \textbf{Relative Importance} \\
-\hline
-$C$ & 100.0 \\
-$\overline{CCF}_{\max,\cdot}$ & 29.2 \\
-$\Delta_{trans}$ & 29.0 \\
-$\overline{|S|}_{\cdot}$ & 6.7 \\
-$\overline{cor}_{\text{comp},\cdot}$ & 6.1 \\
-$CCF_{\max}$ & 2.7 \\
-$\Delta_\theta$ & 2.2 \\
-$\overline{|S|}_{\cdot, \cdot}$ & 1.8 \\
-$cor_{\text{comp}}$ & 1.4 \\
-$\sigma_{m^*}^2$ & 1.3
-\\ \hline
-\end{tabular}
-\caption{Ten most important variables as measured by permutation feature importance in a random forest}
-\label{tab:variableImportance}
-\end{table}
+
+```{r,eval=FALSE}
+load("data/varImportanceData.RData")
+
+plt <- varImportanceData %>%
+  ggplot(aes(x = reorder(varName,varImportance),y = varImportance)) +
+  # geom_boxplot() +
+  # geom_point(size = .5) +
+  geom_jitter(size=.7,width = .1,height = 0) +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "Variable Name",
+       y = "Mean Gini Index Decrease (Log Scale)") +
+  scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
+  scale_y_log10()
+
+ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
-[Figure of ROC curves for decision tree and random forest]
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. Points are plotted on a log scale and vertically jittered for visibility. The No Cluster Indicator feature is by far the most important feature, as measured by the mean decrease in the Gini index.",out.height="4in",out.width="4in"}
+knitr::include_graphics("figures/varImportanceBoxplot.png")
+```
+
+
+<!-- ```{=tex} -->
+<!-- \begin{table}[htbp] -->
+<!-- \centering -->
+<!-- \begin{tabular}{|l|r|} -->
+<!-- \hline -->
+<!-- \textbf{Feature Name} & \textbf{Relative Importance} \\ -->
+<!-- \hline -->
+<!-- $C$ & 100.0 \\ -->
+<!-- $\overline{CCF}_{\max,\cdot}$ & 29.2 \\ -->
+<!-- $\Delta_{trans}$ & 29.0 \\ -->
+<!-- $\overline{|S|}_{\cdot}$ & 6.7 \\ -->
+<!-- $\overline{cor}_{\text{comp},\cdot}$ & 6.1 \\ -->
+<!-- $CCF_{\max}$ & 2.7 \\ -->
+<!-- $\Delta_\theta$ & 2.2 \\ -->
+<!-- $\overline{|S|}_{\cdot, \cdot}$ & 1.8 \\ -->
+<!-- $cor_{\text{comp}}$ & 1.4 \\ -->
+<!-- $\sigma_{m^*}^2$ & 1.3 -->
+<!-- \\ \hline -->
+<!-- \end{tabular} -->
+<!-- \caption{Ten most important variables as measured by permutation feature importance in a random forest} -->
+<!-- \label{tab:variableImportance} -->
+<!-- \end{table} -->
+<!-- ``` -->
+
 
 ## Testing Results
 
@@ -1096,26 +1165,96 @@ An error occurs when this prediction does not match the ground-truth nature of t
 The CART and random forest models outperform the CMC method under various parameters with comparable error rates of 1.3% and 1.1%, respectively.
 The False Positive error rates for all methods are small, less than 1%, while the False Negative error rates are relatively large.
 
-```{=tex}
-\begin{table}[htbp]
-\centering
-\begin{tabular}{|p{.3\textwidth}|r|r|r|}
-\hline
-\textbf{Model} & \textbf{Overall} (\%) & \textbf{False +} (\%) & \textbf{False -} (\%) \\
-\hline
-CART &  1.3 & 0.3 & 13.7 \\
-\hline
-Random Forest & 1.1 & 0.4 & 11.3\\
-\hline
-CMC with Song et al. (2014) parameters & 3.7 & 0.06 & 53.3 \\
-\hline
-CMC with Song et al. (2018) parameters & 3.1 & 0.6 & 36.1 \\
-\hline
-\end{tabular}
-\caption{Test set prediction error rates for CART, random forest, and an implementation of the Congruent Method Cells method from Zemmels et al. (2022) using parameter settings from previous papers.}
-\label{tab:testingAccuracy}
-\end{table}
+```{r,include=FALSE}
+load("data/testAccuracy.RData")
+
+cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. Rate"),
+                                      each = 2),
+                      value = c(.963,.969,.9994,.994,.477,.631),
+                      modelType = rep(c("CMC with Song et al. (2014) params",
+                                        "CMC with Song et al. (2018) params"),
+                                      times = 3),
+                      featureGroup = "CMC")
+
+testAccuracy_plt <- testAccuracy %>%
+  select(modelType,featureGroup,Accuracy,truePos,trueNeg) %>%
+  pivot_longer(cols = 3:5,names_to = "errorType") %>%
+  mutate(errorType = ifelse(errorType == "trueNeg","True Neg. Rate",
+                            ifelse(errorType == "truePos","True Pos. Rate",
+                                   "Accuracy"))) %>%
+  bind_rows(cmcTest) %>%
+  mutate(featureGroup = factor(featureGroup,
+                               levels = 
+                                 c("All Features",
+                                   "Non-discriminatory features removed",
+                                   "Non-discriminatory + noClusterInd features removed",
+                                   "Non-discriminatory + CMC features removed",
+                                   "Non-discriminatory + Visual Diagnostic features removed",
+                                   "CMC"),
+                               labels = 
+                                 c("All Features",
+                                   "Discriminatory",
+                                   "Discrim. - noClusterInd",
+                                   "Discrim. - Registration",
+                                   "Discrim. - Visual",
+                                   "CMC")
+  ),
+  modelType = factor(modelType,levels = c("CART","Logistic Regression",
+                                          "Random Forest",
+                                          "CMC with Song et al. (2018) params",
+                                          "CMC with Song et al. (2014) params"))) %>%
+  select(featureGroup,modelType,everything()) %>%
+  group_by(errorType) %>%
+  mutate(xstart = min(value) - .02*min(value))
+
+plt <- testAccuracy_plt %>%
+  ggplot(aes(x = value,y = modelType)) +
+  geom_point(size = 2) +
+  geom_segment(aes(x=xstart,xend=value,y=modelType,yend=modelType)) +
+  facet_grid(rows = vars(featureGroup),
+             cols = vars(errorType),
+             labeller = label_wrap_gen(width = 15),
+             scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = expansion(c(.05,.05)),
+                     labels = scales::percent,
+                     breaks = scales::breaks_pretty(n = 3)) +
+  scale_y_discrete(labels = scales::label_wrap(width = 20)) +
+  labs(y = "Model Type") +
+  theme(strip.text.y = element_text(size = 7),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 7))
+
+ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4.5,width = 7)
 ```
+
+```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate. In contrast, the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics, particularly when the `noClusterInd` feature is omitted from the data set. Only the CMC method with [Song et al. (2014)] parameters surpasses the other models in terms of true negative rate, although at the cost of a small true positive rate."}
+knitr::include_graphics("figures/testAccuracy.png")
+```
+
+
+<!-- ```{=tex} -->
+<!-- \begin{table}[htbp] -->
+<!-- \centering -->
+<!-- \begin{tabular}{|p{.3\textwidth}|r|r|r|} -->
+<!-- \hline -->
+<!-- \textbf{Model} & \textbf{Overall} (\%) & \textbf{False +} (\%) & \textbf{False -} (\%) \\ -->
+<!-- \hline -->
+<!-- CART &  1.3 & 0.3 & 13.7 \\ -->
+<!-- \hline -->
+<!-- Random Forest & 1.1 & 0.4 & 11.3\\ -->
+<!-- \hline -->
+<!-- CMC with Song et al. (2014) parameters & 3.7 & 0.06 & 53.3 \\ -->
+<!-- \hline -->
+<!-- CMC with Song et al. (2018) parameters & 3.1 & 0.6 & 36.1 \\ -->
+<!-- \hline -->
+<!-- \end{tabular} -->
+<!-- \caption{Test set prediction error rates for CART, random forest, and an implementation of the Congruent Method Cells method from Zemmels et al. (2022) using parameter settings from previous papers.} -->
+<!-- \label{tab:testingAccuracy} -->
+<!-- \end{table} -->
+<!-- ``` -->
 <!-- \hline -->
 
 <!-- Examiner conclusions in Baldwin et al. (2014) & 0.8 & 1.0 & 0.4 \\ -->
