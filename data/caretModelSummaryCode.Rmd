@@ -74,7 +74,11 @@ save(varImportanceData,file = "varImportanceData.RData")
 # CART Decision tree plot
 
 ```{r,eval=FALSE}
-rpart.plot::rpart.plot(cartModel_caret_allFeatures$finalModel,type=2,digits=3)
+cartModel_relevFeatures <- caretModels %>%
+  filter(featureGroup == "Relevant Features" & modelType == "CART") %>%
+  pull(fittedModel) %>% .[[1]]
+
+rpart.plot::rpart.plot(cartModel_relevFeatures$finalModel,type=2,digits=3)
 ```
 
 
@@ -106,4 +110,18 @@ save(testAccuracy,file = "testAccuracy.RData")
 ```
 
 
+
+# Calculate logistic regression parameter
+
+```{r}
+logReg_relevFeatures <- caretModels %>%
+  filter(featureGroup == "Relevant Features" & modelType == "Logistic Regression") %>%
+  pull(fittedModel) %>% .[[1]]
+
+data.frame(varValue = exp(logReg_relevFeatures$finalModel$coefficients)) %>%
+  rownames_to_column(var = "varName") %>%
+  filter(varName != "(Intercept)") %>%
+  mutate(varValue = round(varValue,3)) %>%
+  arrange(desc(varValue))
+```
 
