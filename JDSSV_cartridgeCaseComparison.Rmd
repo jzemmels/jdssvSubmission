@@ -128,7 +128,7 @@ Describe x3p file format and surface matrices.
 
 # Methods
 
-We divide the Methods into three broad categories:
+We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES) algorithm. We divide the Methods into three broad categories:
 
 ```{=tex}
 \begin{enumerate}
@@ -160,7 +160,7 @@ Gray pixels in each plot represent missing values in the surface matrix.
 The `x3p_delete` function removes values in the scan based on the associated mask.
 Next, the `preProcess_removeTrend` function subtracts a fitted conditional median plane from the surface values to "level-out" any global tilt in the scan.
 The `preProcess_gaussFilter()` function applies a bandpass Gaussian filter to remove small-scale noise and other large-scale structure, which better highlights the medium-scale breech face impressions.
-Finally, the `preProcess_erode()` function applies the morphological operation of erosion on the edge of the non-missing surface values.
+Finally, the `preProcess_erode()` function applies the morphological operation of erosion on the edge of the non-missing surface values [cite erosion reference].
 This has the effect of shaving-off values on the interior and exterior edge of the surface, which are often extreme "roll-off" values that unduly affect the comparing stage if not removed.
 The final result is a cartridge case surface matrix with emphasized breech face impressions.
 
@@ -738,21 +738,27 @@ knitr::include_graphics("figures/dbscanScatterplot.png")
 Because $A$ and $B$ are truly matching, we expect the estimated registrations in these two comparison directions to be opposites.
 Indeed, the mean cluster centers in \autoref{fig:dbscanScatterplot} are $(\hat{m}_A,\hat{n}_A,\hat{\theta}_A) \approx (16.9, -16.7, 3^\circ)$ when $A$ is used as source compared to $(\hat{m}_B,\hat{n}_B,\hat{\theta}_B) \approx (-16.2, 16.8, -3^\circ)$ when $B^*$ is used as source.
 
-[Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
-We use DBSCAN differently by calculating numerical features based on the cluster assignments.
+We calculate numerical features based on the DBSCAN cluster assignments.
 We first use a 2D kernel density estimator [cite kde2d from MASS(?)] to identify the rotation $\hat{\theta}_d$ at which the per-cell translations achieve the highest density.
 Next, we compute clusters using the DBSCAN algorithm amongst the estimated translations $\{(m^*_{d,t,\hat{\theta}_d},n^*_{d,t,\hat{\theta}_d}) : t = 1,...,T_d\}$ like those shown in \autoref{fig:dbscanScatterplot}.\footnote{If more than one cluster is identified, we binarize the points based on whether they were assigned to any cluster or if they are a noise point and proceed as if there is only one cluster. We assume that two or more clusters form only because of the course rotation grid considered. Were a finer grid used, the points would coalesce into a single cluster around the true translation value. This assumption has empirical support through our experimentation.} 
 Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
 We treat the mean cluster centers as the estimated translations $[\hat{m}_d,\hat{n}_d]$.
-Finally, we compute the following features:
+
+We consider features related to whether a DBSCAN cluster is identified in both comparison directions and, if such clusters are identified, the average size of the clusters.
+We also compare the density-estimated rotations and translations across the two comparison directions. 
+These are summarized in the following features:
 \begin{align*}
 C &= \frac{1}{2}\left(|\pmb{C}_A| + |\pmb{C}_B|\right) \\
+C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
 \Delta_\theta &= |\hat{\theta}_A + \hat{\theta}_B| \\
 \Delta_{trans} &= \sqrt{(\hat{m}_A + \hat{m}_B)^2 + (\hat{n}_A + \hat{n}_B)^2}
-\end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$.
-For truly matching cartridge case pairs, we expect the \textbf{average DBSCAN cluster size} to be large and the \textbf{difference in the density-estimated registrations} to be small.
+\end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identify function equals 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
+We use both $C$ and $C_0$ because of potential missingness in the values of $C$ if no cluster is identified.
+Missing $C$ values are imputed using the median non-missing value when fitting classifiers, so the missingness information is retained in $C_0$.
 
-From this DBSCAN procedure, we obtain three features summarized in \autoref{tab:dbscanFeatures}.
+For truly matching cartridge case pairs, we expect the \textbf{average DBSCAN cluster size} to be large, the DBSCAN \textbf{cluster indicator} to be 1, and the \textbf{difference in the density-estimated registrations} to be small.
+
+From this DBSCAN procedure, we obtain four features summarized in \autoref{tab:dbscanFeatures}.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -762,6 +768,8 @@ From this DBSCAN procedure, we obtain three features summarized in \autoref{tab:
 Notation & Feature Description \\
 \hline
 $C$ & \textbf{Average DBSCAN cluster size} across both comparison directions \\
+\hline
+$C_0$ & \textbf{Cluster indicator} variable indicating the existence of DBSCAN clusters in both comparison directions \\
 \hline
 $\Delta_\theta$ & \textbf{Absolute sum of the density-estimated rotations} between both comparison directions  \\
 \hline
@@ -1026,19 +1034,31 @@ Multiple cartridge cases were fired from each barrel, so this resulted in a trai
 
 We perform 10-fold cross-validation to train binary classifiers.
 We compare the results of three classifiers: based on a logistic regression, a Classification and Regression Tree (CART) model, and a random forest \citep{R,rpart,randomForest,caret}.
-The following sections detail the results of this cross-validation procedure.
+
+[Write full logistic regression model here]
+
+We consider the pros and cons of each of these models.
+The logistic regression and CART models are more interpretable than a random forest yet, as we will see, a random forest tends to be more accurate.
+The following section detail the results of this cross-validation procedure.
 
 # Results
 
 ## Training Results
 
-\autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracies, including the false positive and false negative error rates, for the CART and random forest models.
-In this application, a false positive is a non-match cartridge case pair that is predicted to be a match.
-A false negative is a match cartridge case pair predicted to be a non-match.
-
+\autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracies for the three trained models.
+We consider the performance of the three models under different subsets of the overall data, which provides insight into the importance of the various feature groups.
+We see that the random forest trained on the full ACES data set results in the highest overall accuracy of $98.9\%$.
+For each feature group, the the random forest yields the highest accuracy followed by the logistic regression and CART models.
+We see that the removing the cluster-based features has a notable impact on the accuracy of the logistic regression and CART models, while the random forest is more is more robust.
 
 ```{r,include=FALSE}
 load("data/accuracyData.RData")
+
+accuracyData %>%
+  group_by(modelType,featureGroup) %>%
+  filter(Accuracy == max(Accuracy)) %>%
+  mutate(Accuracy = round(Accuracy,3)) %>%
+  select(modelType,featureGroup,Accuracy)
 
 plt <- accuracyData %>%
   group_by(modelType,featureGroup) %>%
@@ -1046,33 +1066,42 @@ plt <- accuracyData %>%
   mutate(Accuracy = round(Accuracy,3)) %>%
   select(modelType,featureGroup,Accuracy) %>%
   mutate(featureGroup = factor(featureGroup,
-                               levels = c("All Features",
-                                          "Non-discriminatory features removed",
-                                          "Non-discriminatory + noClusterInd features removed",
-                                          "Non-discriminatory + CMC features removed",
-                                          "Non-discriminatory + Visual Diagnostic features removed"))) %>%
-  arrange(featureGroup,modelType) %>%
+                               levels = c('All Features', 'Relevant Features', 
+                                          'Relevant without noClusterInd', 
+                                          'Relevant without Registration features', 
+                                          'Relevant without Cluster-Based features',
+                                          'Relevant without Visual Diagnostic features',
+                                          'Relevant with absolute value of cell-based registration'),
+                               labels = c("ACES Features + Others",
+                                          "ACES Features",
+                                          "ACES Features without noClusterInd",
+                                          "ACES Features without Registration-Based Features",
+                                          "ACES Features without Cluster-Based Features",
+                                          "ACES Features without Visual Diagnostic Features",
+                                          "ACES with abs. cell-based reg.")),
+         modelType = ifelse(modelType == "Random Forest","RF",
+                            ifelse(modelType == "Logistic Regression","LR",
+                                   "CART"))) %>%
+  filter(featureGroup %in% c("ACES Features","ACES Features without Registration-Based Features",
+                             "ACES Features without Visual Diagnostic Features",
+                             "ACES Features without Cluster-Based Features")) %>%
   ggplot(aes(x = Accuracy,y = modelType)) +
   geom_point(size = 2) +
-  geom_segment(aes(x=.96,xend=Accuracy,y=modelType,yend=modelType)) +
+  geom_segment(aes(x=.9485,xend=Accuracy,y=modelType,yend=modelType)) +
   facet_wrap(~featureGroup,ncol = 1) +
   theme_bw() +
-  scale_x_continuous(limits = c(.96,.991),
+  scale_x_continuous(limits = c(.9485,1.00),
                      expand = expansion(0),
                      labels = scales::percent) +
-  labs(y = "Model Type")
+  scale_y_discrete(position = "right") +
+  labs(y = "Model Type") +
+  theme(panel.grid.major.y = element_blank())
 
 ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 5,width = 7)
-
-# %>%
-#   knitr::kable(format = "latex",
-#                align = c("|l","r|"),
-#                caption = "Estimated out-of-bag model accuracy based on 10-fold cross validation repeated thrice per model.",
-#                label = "trainingAccuracy",
-#                col.names = c("Model Type","Feature Group","Accuracy"))
+knitr::plot_crop("figures/trainingAccuracy.png")
 ```
 
-```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for three models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removal of the non-discriminatory features has little effect on the accuracy across models.',fig.pos="htbp",out.width=".8\\textwidth"}
+```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification and regression tree (CART) models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removing the cluster-based features has the largest impact on the accuracies.',fig.pos="htbp",out.width=".8\\textwidth"}
 knitr::include_graphics("figures/trainingAccuracy.png")
 ```
 
@@ -1093,20 +1122,29 @@ knitr::include_graphics("figures/trainingAccuracy.png")
 <!-- \end{table} -->
 <!-- ``` -->
 
-\autoref{fig:trainedCART} shows the trained CART model.
-For each node, The first line is the predicted class if it were treated as a terminal node.
-The second line is the estimated probability that an observation is a non-match given that it falls into the node.
-The third line is the percentage of all observations that fall into the node.
-<!-- The first split is based on the feature $C$, the size of the DBSCAN clusters averaged across both comparison directions. -->
-<!-- If a cartridge case pair has an associated $C$ value greater than or equal to 5.3, then the pair is classified as a match (left-most node). -->
-<!-- Otherwise, the value of $\overline{CCF}_{\max,\cdot}$ for this pair is considered, after which either `blobSize\_full` or $C$ is considered, and so on. -->
-
-
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
-# knitr::include_graphics("images/trainedCART.png")
-knitr::include_graphics("figures/cartModel_allFeatures.png")
+knitr::include_graphics("images/cartModel_relevantFeatures.png")
 ```
 
+
+<!-- \autoref{fig:trainedCART} shows the trained CART model. -->
+<!-- For each node, The first line is the predicted class if it were treated as a terminal node. -->
+<!-- The second line is the estimated probability that an observation is a non-match given that it falls into the node. -->
+<!-- The third line is the percentage of all observations that fall into the node. -->
+
+
+<!-- ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."} -->
+<!-- # knitr::include_graphics("images/trainedCART.png") -->
+<!-- knitr::include_graphics("figures/cartModel_allFeatures.png") -->
+<!-- ``` -->
+
+
+\autoref{fig:rfVarImpPlt} shows the distribution of a variable importance measure for each feature across fittings of a random forest model using 10 random seeds.
+For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model [cite Gini Index resource].
+[More exposition on Gini Index?]
+Noting the log scale on which these points are plotted, we see that the "no cluster indicator" variable is considered by far the most important variable across the random forest fittings.
+The "cell-based pairwise-complete correlation" and "cluster size" are also important, although it's less clear which is more important due to their distributional overlap.
+Overall, the results indicate that the cluster-based aggregation and cell-based registration features are considered most important by the random forest models.
 
 ```{r,eval=FALSE}
 load("data/varImportanceData.RData")
@@ -1121,7 +1159,7 @@ plt <- varImportanceData %>%
   labs(x = "Variable Name",
        y = "Mean Gini Index Decrease (Log Scale)") +
   scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
-  scale_y_log10()
+  scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)))
 
 ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
@@ -1158,23 +1196,20 @@ knitr::include_graphics("figures/varImportanceBoxplot.png")
 
 ## Testing Results
 
-We compare the trained CART and random forest models to Congruent Matching Cells method under various parameters.
-For each of the 44,850 cartridge case pairs in the testing data set, we use each method to predict whether the pair is a match or non-match.
+For each of the 44,850 cartridge case pairs in the testing data set, we use each model to predict whether the pair is a match or non-match.
 An error occurs when this prediction does not match the ground-truth nature of the cartridge case pair.
-\autoref{tab:trainingAccuracy} summarizes the error rates for each method.
-The CART and random forest models outperform the CMC method under various parameters with comparable error rates of 1.3% and 1.1%, respectively.
-The False Positive error rates for all methods are small, less than 1%, while the False Negative error rates are relatively large.
+\autoref{fig:testingAccuracy} summarizes the error rates for each method.
+The Accuracy is the overall percentage of correct classifications.
+The True Negative rate is percentage of correctly-classified non-match pairs.
+Conversely, the True Positive rate is the percentage of correctly-classified matching pairs.
+
+We see that the testing accuracy across models and feature groups is similar to that of the training results in \autoref{fig:trainingAccuracy}.
+The random forest is more robust to changes in feature group while the CART model performs uniformly worse than the other models.
+Interestingly, the logistic regression model performs slightly better than the random forest for some feature groups.
+Considering the true positive and negative rates, this can be explained by the specificity of the models: the logistic regression model classifies non-matches more effectively in these instances, although this difference is slight.
 
 ```{r,include=FALSE}
 load("data/testAccuracy.RData")
-
-cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. Rate"),
-                                      each = 2),
-                      value = c(.963,.969,.9994,.994,.477,.631),
-                      modelType = rep(c("CMC with Song et al. (2014) params",
-                                        "CMC with Song et al. (2018) params"),
-                                      times = 3),
-                      featureGroup = "CMC")
 
 testAccuracy_plt <- testAccuracy %>%
   select(modelType,featureGroup,Accuracy,truePos,trueNeg) %>%
@@ -1182,30 +1217,34 @@ testAccuracy_plt <- testAccuracy %>%
   mutate(errorType = ifelse(errorType == "trueNeg","True Neg. Rate",
                             ifelse(errorType == "truePos","True Pos. Rate",
                                    "Accuracy"))) %>%
-  bind_rows(cmcTest) %>%
   mutate(featureGroup = factor(featureGroup,
                                levels = 
-                                 c("All Features",
-                                   "Non-discriminatory features removed",
-                                   "Non-discriminatory + noClusterInd features removed",
-                                   "Non-discriminatory + CMC features removed",
-                                   "Non-discriminatory + Visual Diagnostic features removed",
-                                   "CMC"),
+                                 c('All Features', 
+                                   'Relevant Features', 
+                                   'Relevant without noClusterInd', 
+                                   'Relevant without Registration features', 
+                                   'Relevant without Cluster-Based features',
+                                   'Relevant without Visual Diagnostic features',
+                                   'Relevant with absolute value of cell-based registration'),
                                labels = 
-                                 c("All Features",
-                                   "Discriminatory",
-                                   "Discrim. - noClusterInd",
-                                   "Discrim. - Registration",
-                                   "Discrim. - Visual",
-                                   "CMC")
+                                 c("ACES + ",
+                                   "ACES Features",
+                                   "ACES, no noClusterInd",
+                                   "ACES, no Registration",
+                                   "ACES, no Cluster-Based",
+                                   "ACES, no Visual Diag.",
+                                   "ACES w/ abs. cell-based regist.")
   ),
   modelType = factor(modelType,levels = c("CART","Logistic Regression",
-                                          "Random Forest",
-                                          "CMC with Song et al. (2018) params",
-                                          "CMC with Song et al. (2014) params"))) %>%
+                                          "Random Forest"),
+                     labels = c("CART","LR","RF"))) %>%
+  filter(featureGroup %in% c("ACES Features","ACES, no Registration",
+                                   "ACES, no Visual Diag.",
+                                   "ACES, no Cluster-Based")) %>%
   select(featureGroup,modelType,everything()) %>%
   group_by(errorType) %>%
-  mutate(xstart = min(value) - .02*min(value))
+  mutate(xstart = ifelse(errorType == "True Pos. Rate",min(value) - .05*min(value),
+                         .97))
 
 plt <- testAccuracy_plt %>%
   ggplot(aes(x = value,y = modelType)) +
@@ -1214,12 +1253,14 @@ plt <- testAccuracy_plt %>%
   facet_grid(rows = vars(featureGroup),
              cols = vars(errorType),
              labeller = label_wrap_gen(width = 15),
-             scales = "free") +
+             scales = "free",
+             switch = "y") +
   theme_bw() +
-  scale_x_continuous(expand = expansion(c(.05,.05)),
+  scale_x_continuous(expand = expansion(c(0,.2)),
                      labels = scales::percent,
                      breaks = scales::breaks_pretty(n = 3)) +
-  scale_y_discrete(labels = scales::label_wrap(width = 20)) +
+  scale_y_discrete(labels = scales::label_wrap(width = 20),
+                   position = "right") +
   labs(y = "Model Type") +
   theme(strip.text.y = element_text(size = 7),
         axis.title.x = element_blank(),
@@ -1230,7 +1271,7 @@ plt <- testAccuracy_plt %>%
 ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4.5,width = 7)
 ```
 
-```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate. In contrast, the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics, particularly when the `noClusterInd` feature is omitted from the data set. Only the CMC method with [Song et al. (2014)] parameters surpasses the other models in terms of true negative rate, although at the cost of a small true positive rate."}
+```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate. In contrast, the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics, particularly when the cluster-based features are omitted from the data set."}
 knitr::include_graphics("figures/testAccuracy.png")
 ```
 
@@ -1261,14 +1302,65 @@ knitr::include_graphics("figures/testAccuracy.png")
 
 # Discussion
 
-Provide further details for Baldwin study error rate estimation here.
-Include false positive and false negative too.
-Qualify these error rates estimates with a range depending on how inconclusives are treated (cite Heike, Susan, Alicia paper).
-Compare these estimates to the algorithmic results.
+[Discuss importance of various feature groups]
+[Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
+We treat the existence of clusters, along with the size of of those clusters, as features for a classifier.
 
+Our intention in fitting different classification models was to compare each model's strengths and weaknesses.
+As observed previously, the random forest has the overall best accuracy out of the three models with the logistic regression classifier being a consistent close second.
+In particular, the random forest model is better at identifying truly matching cartridge cases than the logistic regression classifier, yet worse at identifying non-matches.
+
+Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
+Ethically, we might favor the model that makes the fewest false positive classifications since mis-classifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+While the input of statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
+
+While the random forest is generally more accurate, the CART and logistic regression models are more interpretable.
+For example, as seen in [figure], the CART model provides a set of simple, binary rules by which we can arrive at a classification.
+[More on CART? Perhaps compare a single decision tree to random forest?]
+
+The estimated coefficients in the logistic regression model help us understand the effect that each feature has on the odds that a cartridge case pair matches.
+[Table] shows the multiplicative change in the odds that a cartridge case pair matches for a one unit increase in each feature.
+
+Discuss benefits of three models here
+
+- CART model is a clear set of binary "rules" that lead to a classification
+
+- Logistic Regression provides estimate of how odds of match change with a one unit increase of each feature
+  - It also performs similar to the random forest
+
+- Random Forest seems to be more robust to changes
+
+Compare results to best CMC method (and Baldwin?).
+Qualify that this *our* implementation of the CMC method
+
+```{r}
+cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. Rate"),
+                                      each = 2),
+                      value = c(.963,.969,.9994,.994,.477,.631),
+                      modelType = rep(c("CMC with Song et al. (2014) params",
+                                        "CMC with Song et al. (2018) params"),
+                                      times = 3),
+                      featureGroup = "CMC")
+```
 
 
 # Conclusion
+
+More experimentation is needed.
+It is reasonable to assume that the version of ACES discussed in this paper would be effective at classifying cartridge cases of the same brand, fired from the same make/model of firearm, and scanned using the same topographical scanner [cite TopMatch].
+It remains to be seen whether the fitted models generalize to other types of ammunition or firearm.
+
+The train/test procedure outlined in this manuscript should be adopted by any future researchers to validate proposed methods.
+[Discuss availability of data and code]
+
+Nonetheless, this paper provides the largest study of automatic cartridge case comparison algorithms published to-date.
+Our results indicate that there exist effective, robust, and interpretable automatic classifiers for cartridge case evidence.
+
+We expect the ACES feature set to evolve over time; for discriminatory features to replace less informative features.
+We stress interpretability as a guiding principle for future feature engineering.
+Ideally, forensic practitioners will eventually use such algorithms to supplement their expert opinion.
+We believe it paramount that practitioners understand and can explain, at least at a high level,  to a jury of lay people the features used for classification.
+[More on why this is important]
 
 \newpage
 
