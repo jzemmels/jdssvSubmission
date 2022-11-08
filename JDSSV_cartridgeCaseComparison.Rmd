@@ -64,6 +64,8 @@ editor_options:
     wrap: sentence
 ---
 
+\newcommand{\hh}[1]{{\textcolor{orange}{#1}}}
+
 ```{r setup, include=FALSE}
 options(prompt = 'R> ', continue = '+ ')
 knitr::opts_chunk$set(echo = FALSE)
@@ -89,22 +91,23 @@ The "ground-truth" of a forensic comparison is a binary classification problem.
 Briefly reference how comparisons are done by examiners currently.
 Keep focus on firearm and toolmark evidence.
 
-Critics of traditional firearm and toolmark comparisons cite a lack of foundational validity (NAS 2009, PCAST 2016).
+Critics of traditional firearm and toolmark comparisons cite a lack of foundational validity (NAS 2009, PCAST 2016). \cite{nas2009, pcast}
 Discuss what PCAST means by foundational validity and how firearm and toolmark evidence falls short according to NAS & PCAST.
 Recent studies of examiner proficiency estimate error rates to be low - between % and % according to [Baldwin].
 Nonetheless, [NAS] and [PCAST] pushed for the development of "objective image processing algorithms to....[quote PCAST here...]." An automatic comparison algorithm could be used as part of an examination to supplement or inform an examiner's opinion [cite Swofford taxonomy paper here].
+\cite{swofford}
 
 # Previous Work
 
 Discuss current state of affairs for algorithmic F&T comparisons.
 
-Cite Hare et al. as a parallel paper to this one applied to bullet data.
+Cite Hare et al. \cite{aoas} as a parallel paper to this one applied to bullet data.
 
 Cite Xiao Hui's project.
 
-Cite CMC method as predominant method.
+Cite CMC method as predominant method. \hh{don't forget about cmcR :)}
 Broadly summarize cell-based comparison procedure and CMC method logic.
-Also reference Zhang et al. (2020) DBSCAN paper here.
+Also reference Zhang et al. (2020) DBSCAN paper \cite{dbscan} here. \hh{XXX I don't know what you mean by Zhang et al 2020}
 
 Discuss limitations of current cartridge case comparison algorithms.
 Currently, there is no rigorous procedure for comparing different algorithms.
