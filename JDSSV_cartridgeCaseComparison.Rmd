@@ -65,6 +65,8 @@ editor_options:
 ---
 
 \newcommand{\hh}[1]{{\textcolor{orange}{#1}}}
+\newcommand{\svp}[1]{{\textcolor{blue}{#1}}}
+\newcommand{\jz}[1]{{\textcolor{ForestGreen}{#1}}}
 
 ```{r setup, include=FALSE}
 options(prompt = 'R> ', continue = '+ ')
@@ -121,7 +123,7 @@ Additionally, we demonstrate how the random forest model can be used to calculat
 
 # Cartridge Case Data
 
-Discuss Baldwin study here.
+Discuss Baldwin study here. \cite{baldwin}
 Point out that it was the only appropriately-designed study according to PCAST.
 Types of cartridge cases, firearms.
 Design of the experiment (known and questioned samples).
@@ -146,7 +148,7 @@ The following sections detail each of these steps.
 
 ## Preprocessing
 
-We first use the open-source FiX3P web application to manually annotate the breech face impression region.
+We first use the open-source FiX3P web application \hh{cite Talen Fisher} to manually annotate the breech face impression region.
 An example of a manually-annotated cartridge case scan is shown in \autoref{fig:annotatedScan}.
 The FiX3P software includes functionality to "paint" the surface of a cartridge case using a computer cursor and save the painted regions to a *mask.* A mask is a 2D array of hexidecimal color values of the same dimension as its associated surface matrix.
 When initialized, every element of a mask is a shade of brown (#cd7f32) by default.
@@ -157,7 +159,7 @@ In \autoref{fig:annotatedScan}, the breech face impression region was manually a
 knitr::include_graphics("images/annotatedReference.png")
 ```
 
-Once read into an R environment, we use sequence of functions available in the [x3ptools] and [cmcR] packages to preprocess the raw scans.
+Once read into an R environment, we use sequence of functions available in the packages [x3ptools] \cite{x3ptools} and [cmcR] \cite{cmcR} to preprocess the raw scans.
 <!-- [Code] demonstrates how the [magrittr] pipe (`%>%`) operator strings together these functions. --> \autoref{fig:preProcessEffect} shows the effect that each function has on the scan surface values.
 Gray pixels in each plot represent missing values in the surface matrix.
 The `x3p_delete` function removes values in the scan based on the associated mask.
@@ -621,7 +623,7 @@ $s_{\theta^*}^2$ & \textbf{Sample variance of the cell-based rotations} \\
 As discussed in the last section, we wish to identify when multiple cells agree on a particular registration.
 [Zhang et al. (2020)] proposed using the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm to identify clusters of points based on their density.
 
-\autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons].
+\autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)}
 The algorithm has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
 In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point.
 First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} These points form the beginning of a cluster and are shown in red in \autoref{fig:dbscanIllustration}.
@@ -1036,7 +1038,7 @@ We randomly split the cartridge case data set into 10 barrels for training and 1
 Multiple cartridge cases were fired from each barrel, so this resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
 
 We perform 10-fold cross-validation to train binary classifiers.
-We compare the results of three classifiers: based on a logistic regression, a Classification and Regression Tree (CART) model, and a random forest \citep{R,rpart,randomForest,caret}.
+We compare the results of three classifiers: based on a logistic regression, a classification tree \cite{rpart}, and a random forest \citep{randomForest, breiman}. We make use of the testing/training infrastructure of the \pkg{caret} package \cite{caret}. 
 
 [Write full logistic regression model here]
 
@@ -1372,14 +1374,18 @@ We believe it paramount that practitioners understand and can explain, at least 
 If necessary or useful, information about certain computational details such as version numbers, operating systems, or compilers could be included in an unnumbered section.
 Also, auxiliary packages (say, for visualizations, maps, tables, \dots) that are not cited in the main text can be credited here.
 
-The results in this paper were obtained using \proglang{R}\~3.5.1.
+The results in this paper were obtained using \proglang{R}\~3.5.1. \hh{I think this version of R is outdated :)} \cite{R}
 \proglang{R} itself and all packages used are available from the Comprehensive \proglang{R} Archive Network (CRAN) at \url{https://CRAN.R-project.org/}.
+
+\hh{acknowledge knitr, the tidyverse, RStudio IDE}
 
 # Acknowledgments {.unnumbered}
 
 All acknowledgments should be collected in this unnumbered section before the references.
 It may contain the usual information about funding and feedback from colleagues/reviewers/etc.
 Furthermore, information such as relative contributions of the authors may be added here (if any).
+
+\hh{XXX CSAFE funding text}
 
 \bibliography{refs}
 
