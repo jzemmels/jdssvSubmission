@@ -4,7 +4,10 @@ title: "R Notebook"
 
 ```{r setup}
 library(tidyverse)
-load("caretModels.RData")
+library(cowplot)
+library(patchwork)
+# load("caretModels.RData")
+load("caretData_fullAlignedScanCropped_train.RData")
 ```
 
 # Training accuracy data
@@ -88,7 +91,7 @@ plt <-
         axis.title.x = element_text(size = 9),
         strip.text = element_text(size = 7)) +
   scale_fill_manual(values = c("blue","red")) +
-  labs(fill = "Type",
+  labs(fill = "Outcome",
        x = "Feature Value")
 
 ggsave(plot = plt,filename = "../images/registrationFeatureDensities.png",height = 5,width = 7)
@@ -310,7 +313,7 @@ plt1 <- densityFeatures %>%
   theme_bw() +
   theme(legend.position = "none") +
   labs(x = "Cluster Indicator",
-       y = "Density by Outcome",
+       y = "Proportion by Outcome",
        fill = "Outcome") +
   scale_fill_manual(values = c("blue","red")) +
   coord_fixed(expand = FALSE) +
@@ -324,26 +327,56 @@ missingDensityFeatures <- densityFeatures %>%
   mutate(n = n/sum(n),
          barPos = ifelse(varName == "Cluster Size",25,
                          40))
-plt2 <- 
+# plt2 <- 
+#   densityFeatures %>%
+#   filter(varName == "Cluster Size") %>%
+#   ggplot() +
+#   geom_density(aes(x = value,fill=type),alpha=.5,adjust=1.8) +
+#   geom_bar(data = missingDensityFeatures %>%
+#              filter(varName == "Cluster Size"),
+#            aes(x = 30,y = n,fill=type),
+#            stat = "identity",
+#            alpha = .5,
+#            position = "stack") +
+#   scale_fill_manual(values = c("blue","red")) +
+#   theme_bw() +
+#   scale_x_continuous(breaks = c(5,10,20,30),
+#                      labels = c("5","10","20","NA")) +
+#   theme(legend.position = "none") +
+#   labs(x = "Cluster Size",
+#        y = "Density by Outcome",
+#        fill = "Outcome")
+
+# plt2 <-  
 densityFeatures %>%
-  filter(varName == "Cluster Size") %>%
+  filter(varName == "Cluster Size")  %>%
+  group_by(value) %>%
+  mutate(naReplacement = c(rep(0,times = ceiling(n()/2)),rep(1,times = floor(n()/2))),
+         value = ifelse(is.na(value),naReplacement,value)) %>%
+  # mutate(value = map_dbl(value,~ ifelse(is.na(.),rbinom(n = 1,size = 1,prob = .5),.))) %>% 
+  # group_by(type,value) %>%
+  # tally() %>%
+  # group_by(type) %>%
+  # mutate(n = n/sum(n),
+  #        value = ifelse(is.na(value) & type == "match",rbinom(n = 2199,size = 2,prob = .5),
+  #                       ifelse(is.na(value) & type == "non-match",rbinom(n = 19746,size = 2,prob = .5),
+  #                              value)))
   ggplot() +
-  geom_density(aes(x = value,fill=type),alpha=.5,adjust=1.8) +
-  geom_bar(data = missingDensityFeatures %>%
-             filter(varName == "Cluster Size"),
-           aes(x = 30,y = n,fill=type),
-           stat = "identity",
-           alpha = .5,
-           position = "stack") +
+  geom_histogram(aes(x = value,y = ..density..,fill = type),binwidth = 1,alpha = .5) +
+  # geom_bar(aes(x = value,y = n,fill = type),stat = "identity",width = .25,alpha = .5) +
+  facet_grid(cols = vars(type),scales = "free",space = "free") +
   scale_fill_manual(values = c("blue","red")) +
   theme_bw() +
-  scale_x_continuous(breaks = c(5,10,20,30),
-                     labels = c("5","10","20","NA")) +
+  scale_x_continuous(breaks = c(.5,5,10,15,20),
+                     labels = c("NA","5","10","15","20")) +
   theme(legend.position = "none") +
   labs(x = "Cluster Size",
        y = "Density by Outcome",
        fill = "Outcome")
-  
+
+# +
+#   facet_grid(.~type,scales = "free",space = "free")
+
 plt3 <- densityFeatures %>%
   filter(varName == "Estimated Rotation Difference") %>%
   ggplot() +
@@ -355,25 +388,51 @@ plt3 <- densityFeatures %>%
        y = "Density by Outcome",
        fill = "Outcome")
 
-plt4 <-  densityFeatures %>%
+# plt4 <-  densityFeatures %>%
+#   filter(varName == "Estimated Translation Difference") %>%
+#   ggplot() +
+#   geom_density(aes(x = value,fill=type),alpha=.5,adjust=1.8) +
+#   geom_bar(data = missingDensityFeatures %>%
+#              filter(varName == "Estimated Translation Difference"),
+#            aes(x = 20,y = n,fill=type),
+#            stat = "identity",
+#            alpha = .5,
+#            position = "stack") +
+#   scale_fill_manual(values = c("blue","red")) +
+#   theme_bw() +
+#   scale_x_continuous(breaks = c(0,5,10,15,20),
+#                      labels = c("0","5","10","15","NA")) +
+#   theme(legend.position = "bottom") +
+#   labs(x = "Estimated Translation Difference",
+#        y = "Density by Outcome",
+#        fill = "Outcome") +
+#   coord_cartesian(xlim = c(NA,21))
+
+# plt4 <-  
+densityFeatures %>%
   filter(varName == "Estimated Translation Difference") %>%
+  mutate(value = ifelse(is.na(value) & type == "match",44.75 + runif(n = 2199, min = 44.5,max = 45),
+                        ifelse(is.na(value) & type == "non-match",45.25 + runif(n = 19746, min = 45,max = 45.5),
+                               value))) %>%
+  # group_by(type,value) %>%
+  # tally() %>%
+  # group_by(type) %>%
+  # mutate(n = n/sum(n),
+  # value = ifelse(is.na(value) & type == "match",19.75,
+  #                ifelse(is.na(value) & type == "non-match",20.25,
+  #                       value))) %>%
   ggplot() +
-  geom_density(aes(x = value,fill=type),alpha=.5,adjust=1.8) +
-  geom_bar(data = missingDensityFeatures %>%
-             filter(varName == "Estimated Translation Difference"),
-           aes(x = 20,y = n,fill=type),
-           stat = "identity",
-           alpha = .5,
-           position = "stack") +
+  geom_density(aes(x = value,fill = type),alpha = .5) +
+  # geom_bar(aes(x = value,y = n,fill = type),stat = "identity",width = .5,alpha = .5) +
   scale_fill_manual(values = c("blue","red")) +
   theme_bw() +
-  scale_x_continuous(breaks = c(0,5,10,15,20),
-                     labels = c("0","5","10","15","NA")) +
-  theme(legend.position = "bottom") +
+  # scale_x_continuous(breaks = c(0,5,10,15,20),
+  #                    labels = c("0","5","10","15","NA")) +
+  theme(legend.position = "none") +
   labs(x = "Estimated Translation Difference",
        y = "Density by Outcome",
        fill = "Outcome") +
-  coord_cartesian(xlim = c(NA,21))
+  facet_wrap(~type,nrow = 1,scales = "free_y")
 
 (plt1 + plt2) / (plt3 + plt4) &
   patchwork::plot_layout(guides = "collect") + theme(legend.position = "bottom")
@@ -406,8 +465,195 @@ plt <- densityFeatures %>%
 
 cowplot::ggdraw(plt) +
   draw_label(label = "NA",x = .959,y = .6,size = 8) +
-  draw_label(label = "NA",x = .,y = .20,size = 8)
+  draw_label(label = "NA",x = .959,y = .20,size = 8)
 ```
+
+```{r}
+clusterIndicator <- densityFeatures %>%
+  filter(varName == "Cluster Indicator") %>%
+  group_by(type,value) %>%
+  tally() %>%
+  group_by(value) %>%
+  mutate(n = n/sum(n),
+         value = factor(value)) %>%
+  ggplot(aes(x = value,y = n,fill = type)) +
+  geom_bar(stat = "identity",alpha = .5) +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 8)) +
+  scale_fill_manual(values = c("blue","red")) +
+  labs(x = "Cluster Indicator",
+       y = "Proportion",
+       fill = "Outcome") +
+  coord_fixed(expand = FALSE,ratio = 2)
+```
+
+
+```{r}
+clusterSize_missing <- densityFeatures %>%
+  filter(varName == "Cluster Size")  %>%
+  group_by(value) %>%
+  mutate(missingValue = ifelse(is.na(value),"Cluster Missing","Cluster Non-missing"),
+         value = ifelse(is.na(value),0,value)) %>%
+  group_by(missingValue,type,value) %>%
+  summarize(n = n()) %>%
+  group_by(missingValue) %>%
+  mutate(n = n/sum(n))  %>%
+  filter(missingValue == "Cluster Missing") %>%
+  ggplot() +
+  geom_bar(aes(x = value,y = n,fill = type),stat = "identity",alpha = .5,width = 1) +
+  facet_wrap(~missingValue,scales = "free",labeller = label_wrap_gen(width = 10)) +
+  scale_fill_manual(values = c("blue","red")) +
+  theme_bw() +
+  scale_x_continuous(breaks = c(0,5,10,15,20),
+                     labels = c("NA","5","10","15","20")) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 8),
+        strip.text = element_text(size = 8)) +
+  labs(#x = "Cluster Size",
+       y = "Proportion",
+       fill = "Outcome") +
+  coord_cartesian(expand = FALSE)
+
+clusterSize_nonMissing <-densityFeatures %>%
+  filter(varName == "Cluster Size")  %>%
+  group_by(value) %>%
+  mutate(missingValue = ifelse(is.na(value),"Cluster Missing","Cluster Non-missing"),
+         value = ifelse(is.na(value),0,value)) %>%
+  group_by(missingValue,type,value) %>%
+  summarize(n = n()) %>%
+  group_by(missingValue) %>%
+  mutate(n = n/sum(n))  %>%
+  filter(missingValue == "Cluster Non-missing") %>%
+  ggplot() +
+  geom_bar(aes(x = value,y = n,fill = type),stat = "identity",
+           alpha = .5,width = .5) +
+  # geom_histogram(aes(x = value,y = ..percent..,fill = type),binwidth = 1,alpha = .5) +
+  # facet_wrap(~missingValue,scales = "free") +
+  scale_fill_manual(values = c("blue","red")) +
+  theme_bw() +
+  scale_x_continuous(breaks = c(0,5,10,15,20),
+                     labels = c("NA","5","10","15","20")) +
+  theme(legend.position = "none",
+        axis.title.y = element_blank(),
+        axis.title.x = element_text(size = 8
+                                    # ,hjust = 0
+                                    )) +
+  labs(x = "Cluster Size",
+       # y = "Proportion",
+       fill = "Outcome")
+```
+
+
+```{r}
+rotationDifference <- densityFeatures %>%
+  filter(varName == "Estimated Rotation Difference") %>%
+  ggplot() +
+  geom_histogram(aes(x = value,y = ..density..,fill=type),
+                 alpha=.5,binwidth = 3,position = "identity") +
+  scale_fill_manual(values = c("blue","red")) +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 8)) +
+  labs(x = "Estimated Rotation\nDifference (degrees)",
+       y = "Density by Outcome",
+       fill = "Outcome")
+```
+
+
+```{r}
+translationDifference <- densityFeatures %>%
+  filter(varName == "Estimated Translation Difference" & !is.na(value)) %>%
+  ggplot() +
+  geom_histogram(aes(x = value,fill = type),alpha = .5,binwidth = 1) +
+  scale_fill_manual(values = c("blue","red")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        axis.title = element_text(size = 8)) +
+  labs(x = "Estimated Translation\nDifference",
+       y = "Count",
+       fill = "Outcome")
+```
+
+```{r}
+((clusterIndicator + ((clusterSize_missing | clusterSize_nonMissing) +
+                       patchwork::plot_layout(widths = c(.3,1)))) /
+   (rotationDifference + translationDifference)) &
+  patchwork::plot_layout(guides = "collect") + 
+  theme(legend.position = "bottom")
+
+(((clusterSize_missing | clusterSize_nonMissing | rotationDifference | translationDifference) +
+    plot_layout(widths = c(.2,1,1,1))) /
+    guide_area()) +
+  patchwork::plot_layout(heights = c(1,.1)) +
+  patchwork::plot_layout(guides = "collect") + 
+  theme(legend.position = "bottom")
+
+densityFeatureDistributions <- ((((clusterSize_missing | clusterSize_nonMissing) + plot_layout(widths = c(.1,1))) /
+  (rotationDifference | translationDifference)) /
+   guide_area()) +
+  patchwork::plot_layout(heights = c(1,1,.1),guides = "collect") + 
+  theme(legend.position = "bottom")
+
+ggsave(plot = densityFeatureDistributions,filename = "../images/densityFeatureDistributions.png",height = 5,width = 7)
+```
+
+
+## Plot of visual diagnistic feature distributions
+
+```{r}
+plt <- caretData %>%
+  select(!contains("ccf")) %>%
+  select(contains("difference"),contains("neighborhood"),"type") %>%
+  select(-cell_differenceCor_ave_sd) %>%
+  pivot_longer(cols = !contains("type"),names_to = "varName") %>%
+  mutate(varName = 
+           case_when(varName == "clusterInd" ~ "Cluster Indicator",
+                     varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
+                     varName == "clusterSize_ave" ~ "Cluster Size",
+                     varName == "cell_y_mean" ~ "Cell-Based Vertical Translation Mean",
+                     varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
+                     varName == "thetaDiff" ~ "Estimated Rotation Difference",
+                     varName == "cell_x_mean" ~ "Cell-Based Horizontal Translation Mean",
+                     varName == "cell_x_sd" ~ "Cell-Based Vertical Translation SD",
+                     varName == "pairwiseCompCor" ~ "Full-Scan Pairwise Complete Correlation",
+                     varName == "clustCenterDiff" ~ "Estimated Translation Difference",
+                     varName == "fullScan_neighborhoodSizeAve_ave" ~ "Full-Scan Average Labeled Neighborhood Size",
+                     varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
+                     varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
+                     varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
+                     varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     TRUE ~ "")) %>%
+  filter(!(varName == "Cell-Based Average Labeled Neighborhood Size" & value >= 125) & 
+           !(varName == "Full-Scan Average Labeled Neighborhood Size" & value >= 300)) %>%
+  mutate(varName = factor(varName,
+                          levels = c("Cell-Based Average Labeled Neighborhood Size",
+                                     "Cell-Based Filtered Correlation Mean",
+                                     "Cell-Based Labeled Neighborhood Size SD",
+                                     "Full-Scan Average Labeled Neighborhood Size",
+                                     "Full-Scan Filtered Correlation",
+                                     "Full-Scan Labeled Neighborhood Size SD"))) %>%
+  ggplot() +
+  geom_density(aes(x = value,fill = type),alpha = .5) +
+  theme_bw() +
+  scale_fill_manual(values = c("blue","red")) +
+  facet_wrap(~varName,scales = "free",
+             labeller = label_wrap_gen(width = 30)) +
+  theme(legend.position = "bottom") +
+  labs(y = "Density",
+       x = "Feature Value",
+       fill = "Outcome")
+
+ggsave(filename = "../images/visualDiagnosticDensities.png",plot = plt,width = 7,height = 5)
+```
+
+
 
 
 # Variable importance data
@@ -464,13 +710,13 @@ rpart.plot::rpart.plot(cartModel_relevFeatures$finalModel,type=2,digits=3)
 # Testing data accuracy
 
 ```{r}
-load("caretData_fullAlignedScanCropped_test.RData")
+load("caretData_fullAlignedScanCropped_testImputed.RData")
 
 testAccuracy <- caretModels %>%
   pmap_dfr(~ {
     
-    caretData_test %>%
-      mutate(predClass = predict(..3,newdata = caretData_test)) %>%
+    caretData_testImputed %>%
+      mutate(predClass = predict(..3,newdata = caretData_testImputed)) %>%
       select(type,predClass) %>%
       summarize(
         errorRate = mean(type != predClass),
@@ -502,5 +748,27 @@ data.frame(varValue = exp(logReg_relevFeatures$finalModel$coefficients)) %>%
   filter(varName != "(Intercept)") %>%
   mutate(varValue = round(varValue,3)) %>%
   arrange(desc(varValue))
+```
+
+
+
+# Identify close non-match comparisons
+
+```{r}
+caretModels %>%
+  filter(featureGroup == "Relevant Features") %>%
+  pmap(~ {
+    
+    dat <- ..3$trainingData %>%
+      filter(!noClusterInd & .outcome == "non-match")
+    
+    predict(..3,newdata = dat)
+    
+  })
+```
+
+
+```{r}
+caretModels
 ```
 

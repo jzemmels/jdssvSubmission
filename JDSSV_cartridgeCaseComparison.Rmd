@@ -274,7 +274,7 @@ Analogous to how a forensic examiner uses a comparison microscope with different
 
 First, we introduce notation that will be used to define the features.
 Let $A$ and $B$ denote two surfaces matrices that we wish to compare.
-For simplicity, we assume that $A,B \in \mathbb{R}^{k \times k}$ for $t > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
+For simplicity, we assume that $A,B \in \mathbb{R}^{k \times k}$ for $k > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
 Due to the presence of (structurally) missing values around the breech face impression region, additional padding does not interfere with the structure of the scan.}
 We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$th row and $j$th column, starting from the top-left corner, of matrix $A$.
 Throughout this section, we will use the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
@@ -290,6 +290,7 @@ NA &\text{otherwise}
 \end{align*}
 Other element-wise operations such as $\ominus_{NA}$ are defined similarly.
 For readability, we will use standard operator notation $+, -, >, <, ...$ and assume the extended operations as defined above.
+
 
 ```{r,cache=TRUE,include=FALSE}
 plt <- impressions::x3pPlot(reference_eroded,target_eroded,x3pNames = c("Scan A","Scan B"),legendLength = grid::unit(4, "in"))
@@ -308,7 +309,7 @@ knitr::include_graphics("figures/matchPair.png")
 A critical step in comparing $A$ and $B$ is to find a transformation of $B$ such that it aligns best to $A$ (or vice versa).
 In image processing, this is called *image registration.* Noting that $A$ and $B$ are essentially grayscale images, we rely on a standard image registration technique [cite Brown, 1992].
 
-In our application, this transformation is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
+In our application, a registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
 Under this transformation, the index $i,j$ maps to a new index $i^*,j^*$ by: \begin{align*}
 \begin{pmatrix} j^* \\ i^* \end{pmatrix} =
 \begin{pmatrix} n \\ m \end{pmatrix} +
@@ -388,7 +389,7 @@ Consequently, we obtain two sets of sets of estimated registrations, $(m^*_d,n^*
 For $d = A$, we then apply the registration transformation $(m^*_A,n^*_A,\theta^*_A)$ to $B$ to obtain $B^*$ and compute the pairwise-complete correlation, $cor_{\text{full},A}$, between $A$ and $B^*$.
 We repeat this in the other comparison direction to obtain $cor_{\text{full},B}$ and average the two:
 \begin{align*}
-\overline{cor}_{\text{full}} = \frac{1}{2}\left(cor_{A,\text{full}} + cor_{B,\text{full}}\right).
+cor_{\text{full}} = \frac{1}{2}\left(cor_{A,\text{full}} + cor_{B,\text{full}}\right).
 \end{align*}
 We assume that the **average full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
 
@@ -404,53 +405,10 @@ Calculating a correlation between two whole scans does not necessarily capture t
 [Song (2013)] proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
 \autoref{fig:cellGridExample} shows an example of matrix $A$ partitioned into a grid of $8 \times 8$ cells.
 
-```{r,cache=TRUE,include=FALSE}
-pltDat <- reference_eroded %>%
-  cmcR::comparison_cellDivision(numCells = c(8,8)) %>%
-  pmap_dfr(~ {
-    
-    impressions::x3p_to_dataFrame(..2) %>%
-      mutate(cellIndex = ..1)
-    
-  }) %>%
-  tidyr::separate(col = "cellIndex",into = c("row","col"),sep = ", ",remove = FALSE) %>%
-  mutate(row = as.integer(row),
-         col = as.integer(col))
 
-plt <- pltDat %>%
-  ggplot(aes(x=x,y=y,fill=value)) +
-  geom_raster() +
-  facet_grid(rows = vars(row),
-             cols = vars(col),
-             labeller = label_both) +
-  theme_void() +
-  coord_fixed(expand = FALSE) +
-  ggplot2::scale_fill_gradientn(colours = rev(c("#7f3b08", "#b35806", "#e08214", 
-                                                "#fdb863", "#fee0b6", "#f7f7f7", "#d8daeb", 
-                                                "#b2abd2", "#8073ac", "#542788", "#2d004b")), 
-                                values = scales::rescale(quantile(pltDat$value, 
-                                                                  c(0, 0.01, 0.025, 0.1, 0.25, 0.5, 0.75, 
-                                                                    0.9, 0.975, 0.99, 1), na.rm = TRUE)), 
-                                breaks = function(lims) {
-                                  dat <- quantile(pltDat$value, c(0,0.01, 0.25, 0.5, 0.75, 0.99, 1), 
-                                                  na.rm = TRUE)
-                                  dat <- dat %>% setNames(paste0(names(dat), 
-                                                                 " [", round(dat, 3), "]"))
-                                  return(dat)
-                                }, na.value = "gray70") +
-  ggplot2::guides(fill = ggplot2::guide_colourbar(barheight = grid::unit(4, 
-                                                                         "in"), label.theme = ggplot2::element_text(size = 8), 
-                                                  title.theme = ggplot2::element_text(size = 10), 
-                                                  frame.colour = "black", ticks.colour = "black"), 
-                  colour = "none") +
-  ggplot2::labs(fill = expression("Rel. Height ["*mu*"m]"))
 
-ggsave(filename = "figures/cellGridExample.png",plot = plt)
-knitr::plot_crop("figures/cellGridExample.png")
-```
-
-```{r,out.width=".6\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} A source scan separated into a grid of $8 \\times 8$ cells. Each source cell is compared to a target scan to estimate where it aligns best. We exclude cells containing only missing values (visualized here as gray pixels)."}
-knitr::include_graphics("figures/cellGridExample.png")
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} A source scan separated into a grid of $8 \\times 8$ cells. Each source cell is compared to a target scan to estimate where it aligns best. We exclude cells containing only missing values (visualized here as gray pixels)."}
+knitr::include_graphics("images/cellGridExample.png")
 ```
 
 The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix to be partitioned into a grid of cells.
@@ -545,20 +503,16 @@ CCF_{\max,d,t} &= \max_{\theta} \{CCF_{\max,d,t,\theta} : \theta \in \pmb{\Theta
 cor_{d,t} &= \max_{\theta} \{cor_{d,t,\theta} : \theta \in \pmb{\Theta}'_d\}
 \end{align*}
 
-We compute the following features using the correlation data: 
+We compute the \textbf{average} and \textbf{standard deviation of the cell-based pairwise-complete correlations} features using the correlation data: 
 \begin{align*}
 \overline{cor}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} cor_{d,t} \\
-s_{cor}^2 &= \frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (cor_{d,t} - \overline{cor}_{\text{cell}})^2
+s_{cor} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (cor_{d,t} - \overline{cor}_{\text{cell}})^2}
 \end{align*} 
 
 <!-- \overline{CCF}_{\max, \cdot} &= \frac{1}{T} \sum_{t=1}^T CCF_{\max,t} \\ -->
 <!-- s_{CCF}^2 &= \frac{1}{T-1} \sum_{t=1}^T (CCF_{\max,t} - \overline{CCF}_{\max, \cdot})^2  \\ -->
 
-We expect
-<!-- $\overline{CCF}_{\max, \cdot}$,  -->
-the \textbf{average cell-based pairwise-complete correlation} to be large and
-<!-- $s_{CCF}^2$,  -->
-the \textbf{standard deviation of the cell-based pairwise-complete correlations} small for truly matching cartridge case pairs.
+We expect the $\overline{cor}_{\text{cell}}$ to be large and the $s_{cor}$ small for truly matching cartridge case pairs.
 
 For $d = A,B$ and $t = 1,...,T_d$, define the per-cell estimated translations and rotation as: 
 \begin{align*}
@@ -567,11 +521,11 @@ m^*_{d,t} &= m^*_{\theta^*_{d,t},d,t} \\
 n^*_{d,t} &= n^*_{\theta^*_{d,t},d,t}
 \end{align*} 
 
-We compute the following additional features using the estimated cell translations and rotations: 
+We compute the \textbf{standard deviation of the cell-based estimated registration} using the estimated cell translations and rotations: 
 \begin{align*}
-s_{\theta^*}^2 =  \frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (\theta^*_{d,t} - \bar{\theta}^*)^2 \\
-s_{m^*}^2 =  \frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (m^*_{d,t} - \bar{m}^*)^2 \\
-s_{n^*}^2 = \frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (n^*_{d,t} - \bar{n}^*)^2 
+s_{\theta^*} =  \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (\theta^*_{d,t} - \bar{\theta}^*)^2} \\
+s_{m^*} =  \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (m^*_{d,t} - \bar{m}^*)^2} \\
+s_{n^*} = \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (n^*_{d,t} - \bar{n}^*)^2}
 \end{align*} 
 where 
 \begin{align*}
@@ -579,7 +533,17 @@ where
 \bar{n}^* &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} n^*_{d,t} \\
 \bar{\theta}^* &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} \theta^*_{d,t}.
 \end{align*}
-We expect the \textbf{sample variance of the cell-based estimated registration} values to be small.
+We expect the $s_{\theta^*}, s_{m^*},s_{n^*}$ to be small for truly matching cartridge case pairs.
+
+\autoref{fig:registrationDensities} shows density plots of the registration-based features for 21,945 cartridge case pairs.
+The first two rows show densities for the sample mean and standard deviation of the cell-based registrations, respectively.
+The third row shows densities for the pairwise-complete correlation features.
+The standard deviation of the cell-based registrations discriminate more between match vs. non-match pairs than the sample means, which justifies their exclusion from the final feature set.
+[More to say here?]
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:registrationDensities} Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
+knitr::include_graphics("images/registrationFeatureDensities.png")
+```
 
 From the full-scan and cell-based registration procedures, we obtain six features summarized in \autoref{tab:registrationFeatures}.
 
@@ -590,23 +554,24 @@ From the full-scan and cell-based registration procedures, we obtain six feature
 \hline
 Notation & Feature Description \\
 \hline
-$\overline{cor}_{\text{full}}$ & \textbf{Full-scan pairwise-complete correlation} after aligning the scans. \\
+$cor_{\text{full}}$ & \textbf{Full-scan pairwise-complete correlation} after aligning the scans. \\
 \hline
 $\overline{cor}_{\text{cell}}$ & \textbf{Average cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
 \hline
-$s_{cor}^2$ & \textbf{Sample variance of the cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
+$s_{cor}$ & \textbf{Standard deviation of the cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
 \hline
-$s_{m^*}^2$ & \textbf{Sample variance of the cell-based vertical translations} \\
+$s_{m^*}$ & \textbf{Standard deviation of the cell-based vertical translations} \\
 \hline
-$s_{n^*}^2$ & \textbf{Sample variance of the cell-based horizontal translations} \\
+$s_{n^*}$ & \textbf{Standard deviation of the cell-based horizontal translations} \\
 \hline
-$s_{\theta^*}^2$ & \textbf{Sample variance of the cell-based rotations} \\
+$s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations} \\
 \hline
 \end{tabular}
 \caption{Six similarity features based on registering full scans or cells.}
 \label{tab:registrationFeatures}
 \end{table}
 ```
+
 
 <!-- \hline -->
 <!-- $\overline{CCF}_{\max, \cdot}$ & Average maximum value of the cross-correlation function across all cells and rotations \\ -->
@@ -745,20 +710,30 @@ Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
 We treat the mean cluster centers as the estimated translations $[\hat{m}_d,\hat{n}_d]$.
 
 We consider features related to whether a DBSCAN cluster is identified in both comparison directions and, if such clusters are identified, the average size of the clusters.
-We also compare the density-estimated rotations and translations across the two comparison directions. 
-These are summarized in the following features:
+We also compare the density-estimated rotations and translations across the two comparison directions.
+These are summarized in the \textbf{average DBSCAN cluster size}, the \textbf{DBSCAN cluster indicator}, and the \textbf{root squared sum of the density-estimated registrations}:
 \begin{align*}
 C &= \frac{1}{2}\left(|\pmb{C}_A| + |\pmb{C}_B|\right) \\
 C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
 \Delta_\theta &= |\hat{\theta}_A + \hat{\theta}_B| \\
-\Delta_{trans} &= \sqrt{(\hat{m}_A + \hat{m}_B)^2 + (\hat{n}_A + \hat{n}_B)^2}
+\Delta_{\text{trans}} &= \sqrt{(\hat{m}_A + \hat{m}_B)^2 + (\hat{n}_A + \hat{n}_B)^2}
 \end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identify function equals 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
 We use both $C$ and $C_0$ because of potential missingness in the values of $C$ if no cluster is identified.
 Missing $C$ values are imputed using the median non-missing value when fitting classifiers, so the missingness information is retained in $C_0$.
 
-For truly matching cartridge case pairs, we expect the \textbf{average DBSCAN cluster size} to be large, the DBSCAN \textbf{cluster indicator} to be 1, and the \textbf{difference in the density-estimated registrations} to be small.
+\autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
+The stacked bar chart in the top-left shows the proportion of comparisons where no DBSCAN cluster is identified by outcome (match or non-match).
+We see that the vast majority of comparisons for which no DBSCAN cluster is identified are non-match comparisons. indicating that $C_0$ is a good indicator of outcome.
+In fact, there is only one non-match comparison that resulted in a DBSCAN cluster.
+It's difficult to see in the plots, but the $C$ value for this non-match pair is 5 and the $\Delta_{\text{trans}}$ value is 23.9.
+As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
 
-From this DBSCAN procedure, we obtain four features summarized in \autoref{tab:dbscanFeatures}.
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:densityDistributions} Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left. This explains the near absence of non-matching comparisons from Cluster Size and Estimated Translation Difference plots. Whether a cluster is identified for a particular comparison strongly predicts whether it is a match or a non-match, which justifies the inclusion of the cluster indicator feature $C_0$.'}
+knitr::include_graphics("images/densityFeatureDistributions.png")
+```
+
+
+For truly matching cartridge case pairs, we expect the $C$ to be large, $C_0$ to be 1, and $\Delta_\theta, \Delta_{\text{trans}}$ to be small. We obtain four density-based features summarized in \autoref{tab:dbscanFeatures}.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -769,14 +744,14 @@ Notation & Feature Description \\
 \hline
 $C$ & \textbf{Average DBSCAN cluster size} across both comparison directions \\
 \hline
-$C_0$ & \textbf{Cluster indicator} variable indicating the existence of DBSCAN clusters in both comparison directions \\
+$C_0$ & \textbf{DBSCAN cluster indicator} of whether DBSCAN clusters exist in both comparison directions \\
 \hline
 $\Delta_\theta$ & \textbf{Absolute sum of the density-estimated rotations} between both comparison directions  \\
 \hline
-$\Delta_{trans}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions \\
+$\Delta_{\text{trans}}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions \\
 \hline
 \end{tabular}
-\caption{Three similarity features based on the density-based clustering procedure.}
+\caption{Four similarity features based on the density-based clustering procedure.}
 \label{tab:dbscanFeatures}
 \end{table}
 ```
@@ -967,31 +942,40 @@ knitr::include_graphics("figures/filterLabeling.png")
 We calculate the following features using the full-scan labeled neighborhoods:
 \begin{align*}
 \overline{|S|}_{\text{full}} &= \frac{1}{L_A + L_B} \sum_{d \in \{A,B\}} \sum_{l=1}^{L_d} |S_{d,l}| \\
-s^2_{\text{full},|S|} &= \frac{1}{L_A + L_B - 1} \sum_{d \in \{A,B\}} \sum_{l=1}^{L_d} (|S_{d,l}| - \overline{|S|}_{\text{full}})^2
+s_{\text{full},|S|} &= \sqrt{\frac{1}{L_A + L_B - 1} \sum_{d \in \{A,B\}} \sum_{l=1}^{L_d} (|S_{d,l}| - \overline{|S|}_{\text{full}})^2}
 \end{align*}
 where $|S_{d,l}|$ is the size of the set $S_{d,l}$.
-We assume that the \textbf{average} and \textbf{sample variance of the filtered full-scan neighborhood sizes} will be small for truly matching cartridge cases.
+We assume that the \textbf{average} and \textbf{standard deviation of the filtered full-scan neighborhood sizes} will be small for truly matching cartridge cases.
 That is to say, we assume that the the surface regions of $A$ and $B$ that are different will all be small, on average, and vary little in size.
 This assumption is appropriate assuming that the breech face leaves consistent markings on fired cartridge cases.
 
 Again, we extend the notation to accommodate individual cells.
 Let $\pmb{S}_{d,t} = \{S_{d,t,1},...,S_{d,t,L_{d,t}}\}$ denote the set of labeled neighborhoods for a cell $t = 1,...,T_d$, $d = A,B$.
-We calculate the per-cell average and sample variance of the labeled neighborhood cell size:
+We calculate the per-cell average and standard deviation of the labeled neighborhood cell size:
 \begin{align*}
 \overline{|S|}_{d,t} &= \frac{1}{L_{d,t}} \sum_{l=1}^L |S_{d,t,l}| \\
-s^2_{d,t,|S|} &= \frac{1}{L_{d,t} - 1} \sum_{l=1}^{L_{d,t}} (|S_{d,t,l}| - \overline{|S|}_{\text{cell},d,t})^2.
+s_{d,t,|S|} &= \sqrt{\frac{1}{L_{d,t} - 1} \sum_{l=1}^{L_{d,t}} (|S_{d,t,l}| - \overline{|S|}_{\text{cell},d,t})^2}.
 \end{align*}
 
 We assume that the cell-based $\overline{|S|}_{d,t}$ and $s^2_{d,t,|S|}$ will be small, on average, for truly matching cartridge cases.
 Consequently, we use the sample average of these as features:
 \begin{align*}
 \overline{|S|}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} \overline{|S|}_{d,t} \\
-\bar{s}^2_{\text{cell},|S|} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} s^2_{d,t,|S|}
+\bar{s}_{\text{cell},|S|} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} s_{d,t,|S|}
 \end{align*}
-Again, we assume that the \textbf{average cell-wise neighborhood size} and the \textbf{average sample variance of the cell-wise neighborhood sizes} will be small for truly matching cartridge cases.
+Again, we assume that the \textbf{average cell-wise neighborhood size} and the \textbf{average standard deviation of the cell-wise neighborhood sizes} will be small for truly matching cartridge cases.
 
 <!-- s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\ -->
 <!-- s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2. -->
+
+\autoref{fig:visualDiagnosticDensities} shows the distribution of the six visual diagnostic-based features.
+As expected, matching comparisons at the full-scan and cell-based levels tend to have smaller neighborhood sizes and higher correlation values on average.
+
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:visualDiagnosticDensities} Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
+knitr::include_graphics("images/visualDiagnosticDensities.png")
+```
+
 
 \autoref{tab:visualDiagnosticFeatures} summarizes the 7 features calculated based on the visual diagnostics.
 
@@ -1008,11 +992,11 @@ $\overline{cor}_{\text{cell},\text{filt}}$ & \textbf{Average filtered cell-wise 
 \hline
 $\overline{|S|}_{\text{full}}$ & \textbf{Average filtered full-scan neighborhood size} across both comparison directions \\
 \hline
-$s^2_{\text{full},|S|}$ & \textbf{Sample variance of the filtered full-scan neighborhood sizes} across both comparison directions \\
+$s_{\text{full},|S|}$ & \textbf{Standard deviation of the filtered full-scan neighborhood sizes} across both comparison directions \\
 \hline
 $\overline{|S|}_{\text{cell}}$ & \textbf{Average filtered cell-wise neighborhood sizes} across all cells in both comparison directions \\
 \hline
-$\bar{s}^2_{\text{cell},|S|}$ & \textbf{Average sample variance of the cell-wise neighborhood sizes} across all cells in both comparison direction \\
+$\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wise neighborhood sizes} across all cells in both comparison direction \\
 \hline
 \end{tabular}
 \caption{Seven similarity features calculated based on visual diagnostics.}
@@ -1046,7 +1030,7 @@ The following section detail the results of this cross-validation procedure.
 ## Training Results
 
 \autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracies for the three trained models.
-We consider the performance of the three models under different subsets of the overall data, which provides insight into the importance of the various feature groups.
+We consider the performance of the three models under different subsets of the ACES feature set, which provides insight into the importance of the various feature groups.
 We see that the random forest trained on the full ACES data set results in the highest overall accuracy of $98.9\%$.
 For each feature group, the the random forest yields the highest accuracy followed by the logistic regression and CART models.
 We see that the removing the cluster-based features has a notable impact on the accuracy of the logistic regression and CART models, while the random forest is more is more robust.
@@ -1075,16 +1059,17 @@ plt <- accuracyData %>%
                                labels = c("ACES Features + Others",
                                           "ACES Features",
                                           "ACES Features without noClusterInd",
-                                          "ACES Features without Registration-Based Features",
-                                          "ACES Features without Cluster-Based Features",
-                                          "ACES Features without Visual Diagnostic Features",
+                                          "Cluster-Based + Visual Diagnostic Features",
+                                          "Registration-Based + Visual Diagnostic Features",
+                                          "Registration-Based + Cluster-Based Features",
                                           "ACES with abs. cell-based reg.")),
          modelType = ifelse(modelType == "Random Forest","RF",
                             ifelse(modelType == "Logistic Regression","LR",
                                    "CART"))) %>%
-  filter(featureGroup %in% c("ACES Features","ACES Features without Registration-Based Features",
-                             "ACES Features without Visual Diagnostic Features",
-                             "ACES Features without Cluster-Based Features")) %>%
+  filter(featureGroup %in% c("ACES Features",
+                             "Cluster-Based + Visual Diagnostic Features",
+                             "Registration-Based + Visual Diagnostic Features",
+                             "Registration-Based + Cluster-Based Features")) %>%
   ggplot(aes(x = Accuracy,y = modelType)) +
   geom_point(size = 2) +
   geom_segment(aes(x=.9485,xend=Accuracy,y=modelType,yend=modelType)) +
@@ -1123,7 +1108,7 @@ knitr::include_graphics("figures/trainingAccuracy.png")
 <!-- ``` -->
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
-knitr::include_graphics("images/cartModel_relevantFeatures.png")
+knitr::include_graphics("images/trainedCART_labeled.png")
 ```
 
 
@@ -1159,7 +1144,12 @@ plt <- varImportanceData %>%
   labs(x = "Variable Name",
        y = "Mean Gini Index Decrease (Log Scale)") +
   scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
-  scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)))
+  scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)),
+                breaks = c(30,100,300,1000),
+                labels = c("30","100","300","1000"),
+                limits = c(30,NA))
+
+plt
 
 ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
@@ -1178,7 +1168,7 @@ knitr::include_graphics("figures/varImportanceBoxplot.png")
 <!-- \hline -->
 <!-- $C$ & 100.0 \\ -->
 <!-- $\overline{CCF}_{\max,\cdot}$ & 29.2 \\ -->
-<!-- $\Delta_{trans}$ & 29.0 \\ -->
+<!-- $\Delta_{\text{trans}}$ & 29.0 \\ -->
 <!-- $\overline{|S|}_{\cdot}$ & 6.7 \\ -->
 <!-- $\overline{cor}_{\text{comp},\cdot}$ & 6.1 \\ -->
 <!-- $CCF_{\max}$ & 2.7 \\ -->
@@ -1230,17 +1220,18 @@ testAccuracy_plt <- testAccuracy %>%
                                  c("ACES + ",
                                    "ACES Features",
                                    "ACES, no noClusterInd",
-                                   "ACES, no Registration",
-                                   "ACES, no Cluster-Based",
-                                   "ACES, no Visual Diag.",
+                                   "Cluster-Based + Visual Diag.",
+                                   "Regist.-Based + Visual Diag.",
+                                   "Regist-Based  + Cluster-Based",
                                    "ACES w/ abs. cell-based regist.")
   ),
   modelType = factor(modelType,levels = c("CART","Logistic Regression",
                                           "Random Forest"),
                      labels = c("CART","LR","RF"))) %>%
-  filter(featureGroup %in% c("ACES Features","ACES, no Registration",
-                                   "ACES, no Visual Diag.",
-                                   "ACES, no Cluster-Based")) %>%
+  filter(featureGroup %in% c("ACES Features",
+                             "Cluster-Based + Visual Diag.",
+                             "Regist.-Based + Visual Diag.",
+                             "Regist-Based  + Cluster-Based")) %>%
   select(featureGroup,modelType,everything()) %>%
   group_by(errorType) %>%
   mutate(xstart = ifelse(errorType == "True Pos. Rate",min(value) - .05*min(value),
@@ -1271,7 +1262,7 @@ plt <- testAccuracy_plt %>%
 ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4.5,width = 7)
 ```
 
-```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate. In contrast, the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics, particularly when the cluster-based features are omitted from the data set."}
+```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate while the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics."}
 knitr::include_graphics("figures/testAccuracy.png")
 ```
 
@@ -1302,16 +1293,15 @@ knitr::include_graphics("figures/testAccuracy.png")
 
 # Discussion
 
-[Discuss importance of various feature groups]
-[Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
-We treat the existence of clusters, along with the size of of those clusters, as features for a classifier.
+## Comparing Classifier Models
 
 Our intention in fitting different classification models was to compare each model's strengths and weaknesses.
-As observed previously, the random forest has the overall best accuracy out of the three models with the logistic regression classifier being a consistent close second.
+As indicated by \autoref{fig:testingAccuracy}, the random forest have similar testing accuracies with the random forest being more robust to changes in feature group.
 In particular, the random forest model is better at identifying truly matching cartridge cases than the logistic regression classifier, yet worse at identifying non-matches.
 
+
 Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
-Ethically, we might favor the model that makes the fewest false positive classifications since mis-classifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+Ethically however, we might favor the model that makes the fewest false positive classifications since mis-classifying a truly non-matching cartridge case pair may incriminate an innocent individual.
 While the input of statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
 
 While the random forest is generally more accurate, the CART and logistic regression models are more interpretable.
@@ -1326,12 +1316,34 @@ Discuss benefits of three models here
 - CART model is a clear set of binary "rules" that lead to a classification
 
 - Logistic Regression provides estimate of how odds of match change with a one unit increase of each feature
-  - It also performs similar to the random forest
+- It also performs similar to the random forest
 
 - Random Forest seems to be more robust to changes
 
-Compare results to best CMC method (and Baldwin?).
-Qualify that this *our* implementation of the CMC method
+## Comparison to Previous Work
+
+Our results corroborate the conclusions made in previous papers.
+[Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
+This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
+Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that a classifier based on $C_0$ would have a reasonably high accuracy.
+However, information about the size and location of clusters in a classifier adds important nuance as indicated by the ranking of $\Delta_{\theta}$, $\Delta_{\text{trans}}$, and $C$ in \autoref{fig:rfVarImpPlt}.
+For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large.
+The ACES logistic regression and random forest models correctly classify this pair as a non-match.
+
+Cells identified by a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) as defined in [Song (2013)].
+While the intention behind the CMC method and the density-based ACES features is the same, that is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
+In the original CMC algorithm, a cell is called a CMC if its estimated registration is within some threshold of a reference value, typically the median registration across all cells.
+The registration thresholds are set manually in most CMC papers except for [Zemmels et al. (2022)] where they are selected based on an optimization criterion.
+As discussed in [Zemmels et al. (2022)], the CMC algorithm is quite sensitive to the choice of thresholds as well as to noisiness in the cell-based registrations.
+In the ACES algorithm, we measure agreement by the number of cells that are close to each other - a reference value is not required, but is a byproduct of the DBSCAN algorithm (e.g., treating cluster centroids as the estimated translations).
+Further, we simplify optimization by defining "closeness" through the single $\epsilon$ parameter of the DBSCAN algorithm instead of three threshold parameters (horizontal/vertical translation and rotation) in the CMC algorithm.
+
+[Song (2013)] measures the similarity between two cartridge cases using the total number of CMCs and proposes classifying a pair as matching if the CMC count exceeds five.
+Considering the DBSCAN cluster size $C$ as analogous to the CMC count, a decision boundary for $C$ equal to five seems reasonable; especially in light of the distribution of $C$ shown in \autoref{fig:densityDistributions}.
+Similarly, reasonable matching registration cutoffs based on \autoref{fig:densityDistributions} are $3^\circ$ for rotation and 10 pixels for translation.
+These are similar to manually-selected thresholds used across various CMC papers [Tong et al. (2015), Chen et al. (2017)].
+
+[Compare results to our best CMC method (and Baldwin?).]
 
 ```{r}
 cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. Rate"),
@@ -1342,6 +1354,8 @@ cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. R
                                       times = 3),
                       featureGroup = "CMC")
 ```
+
+The ACES algorithm simultaneously substantiates the classification rules used by previously proposed cartridge case comparison algorithms while also infusing their logic with additional nuance.
 
 
 # Conclusion
@@ -1386,3 +1400,7 @@ Furthermore, information such as relative contributions of the authors may be ad
 \setcounter{section}{0}
 \renewcommand{\thesection}{\Alph{section}}
 ```
+
+# Appendix {.unnumbered}
+
+

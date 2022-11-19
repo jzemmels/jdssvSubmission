@@ -1,0 +1,277 @@
+---
+title: "R Notebook"
+---
+
+```{r setup, cache = FALSE, include = FALSE}
+library(cmcR) # remotes::install_github("csafe-isu/cmcR")
+library(impressions) # remotes::install_github("jzemmels/impressions")
+library(scored) # remotes::install_github("jzemmels/scored")
+
+library(x3ptools)
+library(tidyverse)
+library(patchwork)
+```
+
+```{r,cache=TRUE,include=FALSE}
+reference <- x3p_read("data/NIST_K013sA1.x3p")
+target <- x3p_read("data/NIST_K013sA2.x3p")
+
+reference$surface.matrix <- reference$surface.matrix*1e6
+target$surface.matrix <- target$surface.matrix*1e6
+
+reference_deleted <- reference %>%
+  impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
+  x3ptools::x3p_sample(m = 4)
+
+reference_detrend <- reference %>%
+  impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  x3ptools::x3p_sample(m = 4)
+
+reference_filtered <- reference %>%
+  impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample() %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample()
+
+reference_eroded <- reference %>%
+  impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample() %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample() %>%
+  cmcR::preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
+  cmcR::preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
+  impressions::x3p_cropWS()
+
+target_eroded <- target %>%
+  impressions::x3p_delete(mask_vals = "#CD7F32FF") %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample() %>%
+  cmcR::preProcess_removeTrend(statistic = "quantile",
+                               tau = .5,
+                               method = "fn") %>%
+  cmcR::preProcess_gaussFilter() %>%
+  x3p_sample() %>%
+  cmcR::preProcess_erode(region = "interior",morphRadius = round(50/4)) %>% 
+  cmcR::preProcess_erode(region = "exterior",morphRadius =  round(50/4)) %>%
+  impressions::x3p_cropWS()
+```
+
+```{r}
+plt <- x3pPlot(reference_eroded,target_eroded,type = "list") %>%
+  map(~ {
+    
+    . +
+      theme(strip.text = element_blank(),
+            plot.title = element_blank(),
+            legend.position = "none")
+    
+  })
+
+ggsave(plt[[1]],filename = "referenceScanExample.png")
+ggsave(plt[[2]],filename = "targetScanExample.png")
+
+knitr::plot_crop("referenceScanExample.png")
+knitr::plot_crop("targetScanExample.png")
+```
+
+```{r}
+load("../data/compData_fullScans.RData")
+
+dat <- compData_fullScans <-
+  map_dfr(seq(-3,3,by = 3),
+          ~ cmcR::comparison_allTogether(reference = reference_eroded,
+                                         target = target_eroded,
+                                         theta = .,
+                                         numCells = c(1,1),
+                                         maxMissingProp = .99,
+                                         sideLengthMultiplier = 1.1,
+                                         returnX3Ps = TRUE)) %>%
+  mutate(direction = "comparison_refToTarget")
+
+dat
+```
+
+```{r}
+library()
+
+dat <- dat %>%
+  filter(theta == 3)
+
+dat1 <- dat$cellHeightValues[[1]] %>%
+  x3p_to_dataFrame() %>% mutate(Scan = "Source")
+
+dat2 <- dat$alignedTargetCell[[1]] %>%
+  x3p_to_dataFrame() %>% mutate(Scan = "Target")
+
+ggplot() +
+  geom_raster(data = dat1 %>% 
+                mutate(value = sqrt(abs(value))),
+              aes(x = x,y=y,fill=value),
+              alpha = 1) +
+  scale_fill_gradient(low = "white",
+                      high = "red",na.value = NA) +
+  ggnewscale::new_scale_fill() +
+  geom_raster(data = dat2 %>% 
+                mutate(value = sqrt(abs(value))),
+              aes(x = x,y=y,fill=value),
+              alpha = .7) +
+  scale_fill_gradient(low = "white",
+                      high = "blue",na.value = NA) +
+  theme_void() +
+  coord_fixed(expand = FALSE)
+```
+
+
+```{r,cache=TRUE,include=FALSE}
+pltDat <- reference_eroded %>%
+  cmcR::comparison_cellDivision(numCells = c(8,8)) %>%
+  pmap_dfr(~ {
+    
+    impressions::x3p_to_dataFrame(..2) %>%
+      mutate(cellIndex = ..1)
+    
+  }) %>%
+  tidyr::separate(col = "cellIndex",into = c("row","col"),sep = ", ",remove = FALSE) %>%
+  mutate(row = as.integer(row),
+         col = as.integer(col))
+
+plt <- pltDat %>%
+  ggplot(aes(x=x,y=y,fill=value)) +
+  geom_raster() +
+  facet_grid(rows = vars(row),
+             cols = vars(col),
+             labeller = label_both) +
+  theme(strip.text = element_blank(),
+        legend.position = "none") +
+  theme_void() +
+  coord_fixed(expand = FALSE) +
+  ggplot2::scale_fill_gradientn(colours = rev(c("#7f3b08", "#b35806", "#e08214", 
+                                                "#fdb863", "#fee0b6", "#f7f7f7", "#d8daeb", 
+                                                "#b2abd2", "#8073ac", "#542788", "#2d004b")), 
+                                values = scales::rescale(quantile(pltDat$value, 
+                                                                  c(0, 0.01, 0.025, 0.1, 0.25, 0.5, 0.75, 
+                                                                    0.9, 0.975, 0.99, 1), na.rm = TRUE)), 
+                                breaks = function(lims) {
+                                  dat <- quantile(pltDat$value, c(0,0.01, 0.25, 0.5, 0.75, 0.99, 1), 
+                                                  na.rm = TRUE)
+                                  dat <- dat %>% setNames(paste0(names(dat), 
+                                                                 " [", round(dat, 3), "]"))
+                                  return(dat)
+                                }, 
+                                na.value = "gray70"
+                                # na.value = NA
+                                ) +
+  ggplot2::guides(fill = ggplot2::guide_colourbar(barheight = grid::unit(4, 
+                                                                         "in"), label.theme = ggplot2::element_text(size = 8), 
+                                                  title.theme = ggplot2::element_text(size = 10), 
+                                                  frame.colour = "black", ticks.colour = "black"), 
+                  colour = "none") +
+  ggplot2::labs(fill = expression("Rel. Height ["*mu*"m]")) +
+  theme(legend.position = "none",
+        strip.text = element_blank())
+
+plt
+
+knitr::plot_crop("cellGridExample.png")
+```
+
+
+```{r}
+compData %>%
+  group_by(cellIndex,direction) %>% 
+  filter(direction == "comparison_refToTarget" & fft_ccf == max(fft_ccf)) %>%
+  ungroup() %>%
+  select(cellIndex,theta,cellHeightValues,alignedTargetCell) %>%
+  pmap(~ {
+    
+    x3pPlot(..3,..4,x3pNames = c(..1,..2))
+    
+  })
+```
+
+```{r}
+dat <- compData %>%
+  group_by(cellIndex,direction) %>% 
+  filter(direction == "comparison_refToTarget" & fft_ccf == max(fft_ccf)) %>%
+  filter(cellIndex %in% c("2, 2","8, 3")) %>%
+  ungroup() %>%
+  select(cellIndex,theta,cellHeightValues,alignedTargetCell) %>%
+  pmap(~ {
+    
+    x3pPlot(..3,..4,type = "list") %>%
+      map(~ {
+        
+        .+theme(strip.text = element_blank(),
+            plot.title = element_blank(),
+            legend.position = "none")
+        
+      })
+    
+  })
+
+ggsave(filename = "alignedSourceCell22.png",plot = dat[[2]][[1]])
+ggsave(filename = "alignedTargetCell22.png",plot = dat[[2]][[2]])
+ggsave(filename = "alignedSourceCell83.png",plot = dat[[1]][[1]])
+ggsave(filename = "alignedTargetCell83.png",plot = dat[[1]][[2]])
+
+knitr::plot_crop("alignedSourceCell22.png")
+knitr::plot_crop("alignedTargetCell22.png")
+knitr::plot_crop("alignedSourceCell83.png")
+knitr::plot_crop("alignedTargetCell83.png")
+```
+
+```{r}
+dat1 <- cmcPlot(reference = reference_eroded,
+        target = target_eroded,
+        cmcClassifs = compData %>%
+          group_by(cellIndex,direction) %>% 
+          filter(direction == "comparison_refToTarget" & fft_ccf == max(fft_ccf)) %>%
+          ungroup() %>%
+          mutate(originalMethod = "CMC"),type = "list")
+
+plt1 <- dat1$reference +
+  theme(strip.text= element_blank())
+
+dat2 <- cmcPlot(reference = reference_eroded,
+        target = target_eroded,
+        cmcClassifs = compData %>%
+          group_by(cellIndex,direction) %>% 
+          filter(direction == "comparison_refToTarget" & fft_ccf == max(fft_ccf)) %>%
+          filter(cellIndex %in% c("1, 4","2, 2","3, 1","5, 2","6, 8","7, 7","8, 3")) %>%
+          ungroup() %>%
+          mutate(originalMethod = "CMC"),type = "list")
+
+
+
+plt2 <- dat2$target +
+  theme(strip.text= element_blank())
+
+ggsave(filename = "referenceCellExample.png",plot = plt1)
+ggsave(filename = "alignedTargetCellExample.png",plot = plt2)
+
+knitr::plot_crop("referenceCellExample.png")
+knitr::plot_crop("alignedTargetCellExample.png")
+```
+
+
+
