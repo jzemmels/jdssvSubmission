@@ -234,7 +234,7 @@ target_eroded <- target %>%
 ```
 
 
-```{r,cache = TRUE,include=FALSE}
+```{r,cache = FALSE,include=FALSE}
 plts <- impressions::x3pPlot(reference_deleted,reference_detrend,reference_filtered,reference_eroded,
                              x3pNames = c("x3p_delete()","preProcess_removeTrend()",
                                           "preProcess_gaussFilter()","preProcess_erode()"),
@@ -306,7 +306,7 @@ knitr::plot_crop("figures/matchPair.png")
 
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:matchPair} A matching pair of processed cartridge case scans. We measure the similarity between these cartridge cases using the distinguishable breech face impressions on their surfaces."}
-knitr::include_graphics("figures/matchPair.png")
+# knitr::include_graphics("figures/matchPair.png")
 ```
 
 ### Registration Estimation
@@ -1136,7 +1136,7 @@ Noting the log scale on which these points are plotted, we see that the "no clus
 The "cell-based pairwise-complete correlation" and "cluster size" are also important, although it's less clear which is more important due to their distributional overlap.
 Overall, the results indicate that the cluster-based aggregation and cell-based registration features are considered most important by the random forest models.
 
-```{r,eval=FALSE}
+```{r,eval=TRUE}
 load("data/varImportanceData.RData")
 
 plt <- varImportanceData %>%
@@ -1153,8 +1153,6 @@ plt <- varImportanceData %>%
                 breaks = c(30,100,300,1000),
                 labels = c("30","100","300","1000"),
                 limits = c(30,NA))
-
-plt
 
 ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
@@ -1328,19 +1326,20 @@ Discuss benefits of three models here
 ## Comparison to Previous Work
 
 Our results corroborate the conclusions made in previous papers.
-[Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
+For example, [Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
 This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
-Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that a classifier based on $C_0$ would have a reasonably high accuracy.
+Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that basing a classifier on $C_0$ is reasonable.
 However, information about the size and location of clusters in a classifier adds important nuance as indicated by the ranking of $\Delta_{\theta}$, $\Delta_{\text{trans}}$, and $C$ in \autoref{fig:rfVarImpPlt}.
-For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large.
-The ACES logistic regression and random forest models correctly classify this pair as a non-match.
+For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large: 23.9 pixels as shown in \autoref{fig:densityDistributions}.
+While a classifier based solely on $C_0$ would misclassify this pair, the ACES logistic regression and random forest models correctly classify this pair as a non-match.
 
-Cells identified by a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) as defined in [Song (2013)].
-While the intention behind the CMC method and the density-based ACES features is the same, that is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
+Cells identified as part of a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) as defined in [Song (2013)].
+While the intention behind the CMC method and the density-based ACES features is the same, which is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
 In the original CMC algorithm, a cell is called a CMC if its estimated registration is within some threshold of a reference value, typically the median registration across all cells.
 The registration thresholds are set manually in most CMC papers except for [Zemmels et al. (2022)] where they are selected based on an optimization criterion.
 As discussed in [Zemmels et al. (2022)], the CMC algorithm is quite sensitive to the choice of thresholds as well as to noisiness in the cell-based registrations.
-In the ACES algorithm, we measure agreement by the number of cells that are close to each other - a reference value is not required, but is a byproduct of the DBSCAN algorithm (e.g., treating cluster centroids as the estimated translations).
+In the ACES algorithm, we measure agreement by the number of cells that are close to each other rather than to a reference registration.
+The estimated registration is simply a byproduct of the DBSCAN algorithm (e.g., treating cluster centroids as the estimated translations).
 Further, we simplify optimization by defining "closeness" through the single $\epsilon$ parameter of the DBSCAN algorithm instead of three threshold parameters (horizontal/vertical translation and rotation) in the CMC algorithm.
 
 [Song (2013)] measures the similarity between two cartridge cases using the total number of CMCs and proposes classifying a pair as matching if the CMC count exceeds five.
@@ -1360,14 +1359,16 @@ cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. R
                       featureGroup = "CMC")
 ```
 
-The ACES algorithm simultaneously substantiates the classification rules used by previously proposed cartridge case comparison algorithms while also infusing their logic with additional nuance.
+[Discuss novelty of the visual diagnostic features]
+
+The ACES algorithm simultaneously substantiates and combines the classification rules used by previously proposed cartridge case comparison algorithms while infusing their logic with additional nuance.
 
 
 # Conclusion
 
 More experimentation is needed.
 It is reasonable to assume that the version of ACES discussed in this paper would be effective at classifying cartridge cases of the same brand, fired from the same make/model of firearm, and scanned using the same topographical scanner [cite TopMatch].
-It remains to be seen whether the fitted models generalize to other types of ammunition or firearm.
+Further exploration into the generalizability of these fitted models to other types of ammunition or firearm is required.
 
 The train/test procedure outlined in this manuscript should be adopted by any future researchers to validate proposed methods.
 [Discuss availability of data and code]
