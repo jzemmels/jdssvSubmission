@@ -673,7 +673,7 @@ varImportanceData <- rf_repeated$rfFit %>%
     
   }) %>%
   mutate(varName = 
-           case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
+           case_when(varName == "noClusterInd" ~ "Cluster Indicator",
                      varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation",
                      varName == "clusterSize_ave" ~ "Cluster Size",
                      varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
@@ -731,6 +731,12 @@ testAccuracy <- caretModels %>%
          truePos = 1 - falseNeg,
          trueNeg = 1 - falsePos)
 
+testAccuracy %>%
+  ggplot(aes(x = modelType,y = Accuracy)) +
+  geom_point() +
+  coord_flip() +
+  facet_wrap( ~ featureGroup,ncol = 1)
+
 save(testAccuracy,file = "testAccuracy.RData")
 ```
 
@@ -743,11 +749,16 @@ logReg_relevFeatures <- caretModels %>%
   filter(featureGroup == "Relevant Features" & modelType == "Logistic Regression") %>%
   pull(fittedModel) %>% .[[1]]
 
-data.frame(varValue = exp(logReg_relevFeatures$finalModel$coefficients)) %>%
+logisticRegOddsFactors <- data.frame(varValue = exp(logReg_relevFeatures$finalModel$coefficients)) %>%
   rownames_to_column(var = "varName") %>%
   filter(varName != "(Intercept)") %>%
   mutate(varValue = round(varValue,3)) %>%
-  arrange(desc(varValue))
+  arrange(desc(varValue)) %>%
+  rename(logistOddsFactor = varValue)
+
+save(logisticRegOddsFactors,file = "../data/logisticRegOddsMultipliers.RData")
+# %>%
+#   filter(varName %in% c("noClusterIndTRUE","cell_x_sd","cell_y_sd","thetaDiff","cell_pairwiseCompCor_mean"))
 ```
 
 
@@ -768,7 +779,4 @@ caretModels %>%
 ```
 
 
-```{r}
-caretModels
-```
 

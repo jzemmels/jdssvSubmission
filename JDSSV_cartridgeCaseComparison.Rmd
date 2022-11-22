@@ -48,6 +48,9 @@ keywords:
   # at least one keyword must be supplied
   formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}"]
   plain:     [forensics, forensic statistics, pattern recognition, firearms and toolmarks, R]
+header-includes:
+  - \usepackage{float}
+  - \floatplacement{figure}{H}
 preamble: >
   \usepackage{amsmath}
   \usepackage{amsfonts}
@@ -297,7 +300,7 @@ Other element-wise operations such as $\ominus_{NA}$ are defined similarly.
 For readability, we will use standard operator notation $+, -, >, <, ...$ and assume the extended operations as defined above.
 
 
-```{r,cache=TRUE,include=FALSE}
+```{r,cache=FALSE,include=FALSE}
 plt <- impressions::x3pPlot(reference_eroded,target_eroded,x3pNames = c("Scan A","Scan B"),legendLength = grid::unit(4, "in"))
 
 ggsave(filename = "figures/matchPair.png",plot = plt,height = 7,width = 10)
@@ -306,7 +309,7 @@ knitr::plot_crop("figures/matchPair.png")
 
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:matchPair} A matching pair of processed cartridge case scans. We measure the similarity between these cartridge cases using the distinguishable breech face impressions on their surfaces."}
-# knitr::include_graphics("figures/matchPair.png")
+knitr::include_graphics("figures/matchPair.png")
 ```
 
 ### Registration Estimation
@@ -408,12 +411,10 @@ Following the full-scan registration, we next perform a cell-based registration 
 Rather, distinguishing markings appear in specific, usually small, regions of a scan (the author refers to these as *valid correlation regions*).
 Calculating a correlation between two whole scans does not necessarily capture the similarity between these regions.
 [Song (2013)] proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
-\autoref{fig:cellGridExample} shows an example of matrix $A$ partitioned into a grid of $8 \times 8$ cells.
+\autoref{fig:cellGridExample} shows an example of two non-match cartridge cases where the source matrix (left) is partitioned into an $8 \times 8$ grid of cells.
 
-
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} A source scan separated into a grid of $8 \\times 8$ cells. Each source cell is compared to a target scan to estimate where it aligns best. We exclude cells containing only missing values (visualized here as gray pixels)."}
-knitr::include_graphics("images/cellGridExample.png")
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} Estimated registrations of cells from a non-match pair of cartridge cases. A source scan (left) is separated into an $8 \\times 8$ grid of cells. We exclude cells containing only missing values (visualized here as gray pixels). Each source cell is compared to a target scan (right) to estimate where it aligns best. We show a handful of cells at their estimated alignment in the target scan and magnify the surfaces captured by cell pairs 5, 1 and 7, 7. Although the cartridge case pair is non-matching, we note that there are similarities in the surface markings for these cell pairs."}
+knitr::include_graphics("images/cellGridExample_nonMatch.png")
 ```
 
 The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix to be partitioned into a grid of cells.
@@ -421,7 +422,7 @@ Each of these source cells will be compared to the "target" matrix, in this case
 Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each source cell to $B^*$ using a new rotation grid of $\pmb{\Theta}'_A = \{\theta^*_A - 2^\circ, \theta^*_A - 1^\circ,\theta^*_A,\theta^*_A + 1^\circ,\theta^*_A + 2^\circ\}$.
 
 We now extend the surface matrix notation introduced previously to accommodate cells.
-Let $A_{t}$ denote the $t$th cell of matrix $A$, $t = 1,...,T_A$ where $T_A$ is the total number of cells containing non-missing values (e.g., $T_A = 38$ in \autoref{fig:cellGridExample}) in scan $A$ and let $(a_t)_{ij}$ denote the $i,j$-th element of $A_t$.
+Let $A_{t}$ denote the $t$th cell of matrix $A$, $t = 1,...,T_A$ where $T_A$ is the total number of cells containing non-missing values (e.g., $T_A = 43$ in \autoref{fig:cellGridExample}) in scan $A$ and let $(a_t)_{ij}$ denote the $i,j$-th element of $A_t$.
 
 The cell-based comparison procedure is outlined in \autoref{alg:cellComparison}.
 
@@ -445,7 +446,12 @@ Calculate translation $[m^*_{A,t,\theta},n^*_{A,t,\theta}] = \arg \max_{m,n} (a_
 ```
 
 Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_A$ of translations and CCF values for each cell and each rotation considered.
-If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.\footnote{And that cells will not come to such an agreement for a non-matching pair of cartridge cases} This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
+\autoref{fig:cellGridExample} shows the estimated registrations of cells between two non-match cartridge cases.
+We magnify the surface values captured by cell pairs 5, 1 and 7, 7 and note the similarities in the surface values; for example, the dark purple region in the middle of the cell 7, 7 pair.
+[More discussion on why ]
+
+If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.
+This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
 The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[17,-16]$.
 This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
 The task is to determine when cells reach a registration consensus.
@@ -600,7 +606,7 @@ Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neigh
 knitr::include_graphics("images/dbscanIllustration.png")
 ```
 
-```{r,cache=TRUE,include=FALSE}
+```{r,cache=FALSE,include=FALSE}
 estimRotations <- compData %>%
   group_by(direction,theta) %>%
   group_split() %>%
@@ -1004,7 +1010,7 @@ $\overline{|S|}_{\text{cell}}$ & \textbf{Average filtered cell-wise neighborhood
 $\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wise neighborhood sizes} across all cells in both comparison direction \\
 \hline
 \end{tabular}
-\caption{Seven similarity features calculated based on visual diagnostics.}
+\caption{Six similarity features calculated based on visual diagnostics.}
 \label{tab:visualDiagnosticFeatures}
 \end{table}
 ```
@@ -1036,9 +1042,13 @@ The following section detail the results of this cross-validation procedure.
 
 \autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracies for the three trained models.
 We consider the performance of the three models under different subsets of the ACES feature set, which provides insight into the importance of the various feature groups.
+Namely, the first facet shows the cross-validated classification accuracy based on the the full ACES feature set.
+The remaining plots show the accuracy based on using a combination of two of the three feature groups.
+
 We see that the random forest trained on the full ACES data set results in the highest overall accuracy of $98.9\%$.
 For each feature group, the the random forest yields the highest accuracy followed by the logistic regression and CART models.
-We see that the removing the cluster-based features has a notable impact on the accuracy of the logistic regression and CART models, while the random forest is more is more robust.
+We see that the removing the density-based features has a notable impact on the accuracy of the logistic regression and CART models, while the random forest is more is more robust.
+Removal of the registration and visual diagnostic features have less of a significant impact.
 
 ```{r,include=FALSE}
 load("data/accuracyData.RData")
@@ -1064,17 +1074,17 @@ plt <- accuracyData %>%
                                labels = c("ACES Features + Others",
                                           "ACES Features",
                                           "ACES Features without noClusterInd",
-                                          "Cluster-Based + Visual Diagnostic Features",
+                                          "Density-Based + Visual Diagnostic Features",
                                           "Registration-Based + Visual Diagnostic Features",
-                                          "Registration-Based + Cluster-Based Features",
+                                          "Registration-Based + Density-Based Features",
                                           "ACES with abs. cell-based reg.")),
          modelType = ifelse(modelType == "Random Forest","RF",
                             ifelse(modelType == "Logistic Regression","LR",
                                    "CART"))) %>%
   filter(featureGroup %in% c("ACES Features",
-                             "Cluster-Based + Visual Diagnostic Features",
+                             "Density-Based + Visual Diagnostic Features",
                              "Registration-Based + Visual Diagnostic Features",
-                             "Registration-Based + Cluster-Based Features")) %>%
+                             "Registration-Based + Density-Based Features")) %>%
   ggplot(aes(x = Accuracy,y = modelType)) +
   geom_point(size = 2) +
   geom_segment(aes(x=.9485,xend=Accuracy,y=modelType,yend=modelType)) +
@@ -1091,7 +1101,7 @@ ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 5,width = 
 knitr::plot_crop("figures/trainingAccuracy.png")
 ```
 
-```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification and regression tree (CART) models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removing the cluster-based features has the largest impact on the accuracies.',fig.pos="htbp",out.width=".8\\textwidth"}
+```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification and regression tree (CART) models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removing the density-based features has the largest impact on the accuracies.',fig.pos="htbp",out.width=".8\\textwidth"}
 knitr::include_graphics("figures/trainingAccuracy.png")
 ```
 
@@ -1112,16 +1122,6 @@ knitr::include_graphics("figures/trainingAccuracy.png")
 <!-- \end{table} -->
 <!-- ``` -->
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
-knitr::include_graphics("images/trainedCART_labeled.png")
-```
-
-
-<!-- \autoref{fig:trainedCART} shows the trained CART model. -->
-<!-- For each node, The first line is the predicted class if it were treated as a terminal node. -->
-<!-- The second line is the estimated probability that an observation is a non-match given that it falls into the node. -->
-<!-- The third line is the percentage of all observations that fall into the node. -->
-
 
 <!-- ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."} -->
 <!-- # knitr::include_graphics("images/trainedCART.png") -->
@@ -1132,9 +1132,8 @@ knitr::include_graphics("images/trainedCART_labeled.png")
 \autoref{fig:rfVarImpPlt} shows the distribution of a variable importance measure for each feature across fittings of a random forest model using 10 random seeds.
 For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model [cite Gini Index resource].
 [More exposition on Gini Index?]
-Noting the log scale on which these points are plotted, we see that the "no cluster indicator" variable is considered by far the most important variable across the random forest fittings.
-The "cell-based pairwise-complete correlation" and "cluster size" are also important, although it's less clear which is more important due to their distributional overlap.
-Overall, the results indicate that the cluster-based aggregation and cell-based registration features are considered most important by the random forest models.
+Noting the log scale on which these points are plotted, we see that the cluster indicator $C_0$ and cell-based pairwise complete correlation $\overline{cor}_{\text{cell}}$ variables are considered by far the most important variable across the random forest fittings.
+Overall, the results indicate that the density-based aggregation and cell-based registration features are considered most important by the random forest models.
 
 ```{r,eval=TRUE}
 load("data/varImportanceData.RData")
@@ -1146,7 +1145,7 @@ plt <- varImportanceData %>%
   geom_jitter(size=.7,width = .1,height = 0) +
   coord_flip() +
   theme_bw() +
-  labs(x = "Variable Name",
+  labs(x = "Feature Name",
        y = "Mean Gini Index Decrease (Log Scale)") +
   scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
   scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)),
@@ -1157,10 +1156,20 @@ plt <- varImportanceData %>%
 ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. Points are plotted on a log scale and vertically jittered for visibility. The No Cluster Indicator feature is by far the most important feature, as measured by the mean decrease in the Gini index.",out.height="4in",out.width="4in"}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. Points are plotted on a log scale and vertically jittered for visibility. The Cluster Indicator feature $C_0$ and cell-based pairwise complete correlation $\\overline{cor}_{\\text{cell}}$ features are by far the most important, as measured by the mean decrease in the Gini index.",out.height="4in",out.width="4in"}
 knitr::include_graphics("figures/varImportanceBoxplot.png")
 ```
 
+
+\autoref{fig:trainedCART} shows the trained CART model.
+For each node, The first line is the predicted class if it were treated as a terminal node.
+The second line is the estimated probability that an observation is a non-match given that it falls into the node.
+The third line is the percentage of all observations that fall into the node.
+We see that splits are made on the three variables that are ranked as most important in \autoref{fig:rfVarImpPlt}; namely, $C_0$, $\overline{cor}_{\text{cell}}$, and $s_{m^*}$.
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
+knitr::include_graphics("images/trainedCART_labeled.png")
+```
 
 <!-- ```{=tex} -->
 <!-- \begin{table}[htbp] -->
@@ -1197,9 +1206,13 @@ The True Negative rate is percentage of correctly-classified non-match pairs.
 Conversely, the True Positive rate is the percentage of correctly-classified matching pairs.
 
 We see that the testing accuracy across models and feature groups is similar to that of the training results in \autoref{fig:trainingAccuracy}.
-The random forest is more robust to changes in feature group while the CART model performs uniformly worse than the other models.
+The random forest is more robust to changes in feature group while the CART model generally performs worse than the other models.
 Interestingly, the logistic regression model performs slightly better than the random forest for some feature groups.
 Considering the true positive and negative rates, this can be explained by the specificity of the models: the logistic regression model classifies non-matches more effectively in these instances, although this difference is slight.
+Similar to the training results, the CART model has a comparable true negative rate to the other models, but a lower true positive rate.
+
+In contrast to the training results, excluding the registration-based features has a more dramatic impact on the testing accuracy than excluding either of the other two feature groups.
+Excluding the visual diagnostic features seemingly as the least impact on accuracy, although it does noticeably affect the true positive rate.
 
 ```{r,include=FALSE}
 load("data/testAccuracy.RData")
@@ -1223,18 +1236,18 @@ testAccuracy_plt <- testAccuracy %>%
                                  c("ACES + ",
                                    "ACES Features",
                                    "ACES, no noClusterInd",
-                                   "Cluster-Based + Visual Diag.",
+                                   "Density-Based + Visual Diag.",
                                    "Regist.-Based + Visual Diag.",
-                                   "Regist-Based  + Cluster-Based",
+                                   "Regist-Based  + Density-Based",
                                    "ACES w/ abs. cell-based regist.")
   ),
   modelType = factor(modelType,levels = c("CART","Logistic Regression",
                                           "Random Forest"),
                      labels = c("CART","LR","RF"))) %>%
   filter(featureGroup %in% c("ACES Features",
-                             "Cluster-Based + Visual Diag.",
+                             "Density-Based + Visual Diag.",
                              "Regist.-Based + Visual Diag.",
-                             "Regist-Based  + Cluster-Based")) %>%
+                             "Regist-Based  + Density-Based")) %>%
   select(featureGroup,modelType,everything()) %>%
   group_by(errorType) %>%
   mutate(xstart = ifelse(errorType == "True Pos. Rate",min(value) - .05*min(value),
@@ -1265,7 +1278,7 @@ plt <- testAccuracy_plt %>%
 ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4.5,width = 7)
 ```
 
-```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Logistic Regression model performs about as well as the Random Forest model in classifying matches and non-matches amongst the test data set. This is primarily because the Logistic Regression model is has a higher true negative rate while the Random Forest model has a higher true positive rate. The CART model lags behind in the three metrics."}
+```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Random Forest and Logistic Regression models have similar accuracies. However, this is primarily because the Logistic Regression model is has a higher true negative rate while the Random Forest model has a higher true positive rate. The CART model lags behind in accuracy due to its lower true positive rate, but has a comparable true negative rate to the other models."}
 knitr::include_graphics("figures/testAccuracy.png")
 ```
 
@@ -1296,23 +1309,49 @@ knitr::include_graphics("figures/testAccuracy.png")
 
 # Discussion
 
-## Comparing Classifier Models
+## Comparing Models and Feature Sets
 
-Our intention in fitting different classification models was to compare each model's strengths and weaknesses.
+Our intention in fitting different classification models across various feature sets was to explore each model's strengths and weaknesses.
 As indicated by \autoref{fig:testingAccuracy}, the random forest have similar testing accuracies with the random forest being more robust to changes in feature group.
 In particular, the random forest model is better at identifying truly matching cartridge cases than the logistic regression classifier, yet worse at identifying non-matches.
-
 
 Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
 Ethically however, we might favor the model that makes the fewest false positive classifications since mis-classifying a truly non-matching cartridge case pair may incriminate an innocent individual.
 While the input of statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
 
-While the random forest is generally more accurate, the CART and logistic regression models are more interpretable.
-For example, as seen in [figure], the CART model provides a set of simple, binary rules by which we can arrive at a classification.
-[More on CART? Perhaps compare a single decision tree to random forest?]
-
+A major benefit of the CART and logistic regression models are their interpretable compared to the random forest model.
+For example, \autoref{fig:trainedCART} illustrates that classifications under the CART follow a simple set of binary rules.
+[More on CART?]
 The estimated coefficients in the logistic regression model help us understand the effect that each feature has on the odds that a cartridge case pair matches.
-[Table] shows the multiplicative change in the odds that a cartridge case pair matches for a one unit increase in each feature.
+\autoref{tab:logistOddsMult} shows the multiplicative change in the odds that a cartridge case pair matches for a one unit increase in the associated feature value.
+We show the top five features in terms of odds multiplier.
+For example, the odds that a cartridge case pair matches if $C_0 = 1$ is $3.8 \times 10^{43}$ times odds that it matches if $C_0 = 0$, holding all other features constant.
+This again underscores the importance of the $C_0$ feature.
+
+
+```{r,fig.pos="H",fig.align='center',out.extra=''}
+load("data/logisticRegOddsMultipliers.RData")
+
+logisticRegOddsFactors %>%
+  slice(1:5) %>%
+  mutate(logistOddsFactor = case_when(varName == "noClusterIndTRUE" ~ "$3.8 \\times 10^{47}$",
+                             varName == "differenceCor_ave" ~ "1,242.0",
+                             varName == "cell_theta_sd" ~ "67.1",
+                             varName == "clustCenterDiff" ~ "1.8",
+                             varName == "cell_x_sd" ~ "1.1",
+                             TRUE ~ "")) %>%
+  mutate(varName = case_when(varName == "noClusterIndTRUE" ~ "Cluster Indicator",
+                             varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                             varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
+                             varName == "clustCenterDiff" ~ "Estimated Translation Difference",
+                             varName == "cell_x_sd" ~ "Cell-Based Horizontal Translation SD",
+                             TRUE ~ "")) %>%
+  knitr::kable(col.names = c("Feature Name","Odds Multiplier"),
+               align = "c",label = "logistOddsMult",
+               caption = "Logistic regression-estimated multiplicative increase in the odds that a cartridge case pair is truly matching for a one unit increase in the associated feature, holding all other features constant. For brevity, we consider the top five features in terms of the odds multiplier. Note that the Cluster Indicator feature only takes on values 0 or 1.",
+               format = "latex",booktabs = TRUE,escape = FALSE)
+```
+
 
 Discuss benefits of three models here
 
@@ -1323,15 +1362,17 @@ Discuss benefits of three models here
 
 - Random Forest seems to be more robust to changes
 
+- Logistic regression and random forest provide continuous scores that can be used to compute SLRs
+
 ## Comparison to Previous Work
 
-Our results corroborate the conclusions made in previous papers.
+The ACES algorithm substantiates and combines the classification rules used by previously proposed cartridge case comparison algorithms while infusing their logic with additional nuance.
 For example, [Zhang et al. (2020)] proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
 This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
 Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that basing a classifier on $C_0$ is reasonable.
 However, information about the size and location of clusters in a classifier adds important nuance as indicated by the ranking of $\Delta_{\theta}$, $\Delta_{\text{trans}}$, and $C$ in \autoref{fig:rfVarImpPlt}.
 For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large: 23.9 pixels as shown in \autoref{fig:densityDistributions}.
-While a classifier based solely on $C_0$ would misclassify this pair, the ACES logistic regression and random forest models correctly classify this pair as a non-match.
+While a classifier based solely on $C_0$ would misclassify this pair, the ACES logistic regression model correctly classifies this pair as a non-match.
 
 Cells identified as part of a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) as defined in [Song (2013)].
 While the intention behind the CMC method and the density-based ACES features is the same, which is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
@@ -1347,7 +1388,7 @@ Considering the DBSCAN cluster size $C$ as analogous to the CMC count, a decisio
 Similarly, reasonable matching registration cutoffs based on \autoref{fig:densityDistributions} are $3^\circ$ for rotation and 10 pixels for translation.
 These are similar to manually-selected thresholds used across various CMC papers [Tong et al. (2015), Chen et al. (2017)].
 
-[Compare results to our best CMC method (and Baldwin?).]
+[Compare results to our best CMC method results (and Baldwin?).]
 
 ```{r}
 cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. Rate"),
@@ -1359,10 +1400,17 @@ cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. R
                       featureGroup = "CMC")
 ```
 
-[Discuss novelty of the visual diagnostic features]
-
-The ACES algorithm simultaneously substantiates and combines the classification rules used by previously proposed cartridge case comparison algorithms while infusing their logic with additional nuance.
-
+While the registration and density-based features share similarities with previously proposed algorithms, the visual diagnostic features are completely novel.
+The visual diagnostic features quantify what our intuition says should be true about matching cartridge case scans: that their surface markings should be similar.
+We intend these visual diagnostics to be useful not only for engineering features for a classification algorithm, but also in explaining the behavior of the such algorithms.
+Visuals such as the comparison plot in \autoref{fig:fullScan_comparisonPlot} partition a pair of scans into similar and different regions.
+[Discuss features that can be explained by similarities such as correlation].
+The filtered differences tend to emphasize the most extreme values on the two cartridge case surfaces.
+We have found the cell-based comparison procedure to be sensitive to such extreme regions; in particular, cells from the source scan naturally "gravitate" towards extreme regions in the target scan.
+This phenomenon often explains noise in the cell-based estimated registrations, such as in \autoref{fig:estimatedTranslationFaceted}, which directly affects the quality of the signal in the registration and density-based features.
+Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
+As such, it is important that forensic examiners be able to interpret and explain the results of a comparison algorithm.
+The visual diagnostic features discussed in this paper are demonstrably useful in understanding the ACES algorithm's behavior.
 
 # Conclusion
 
