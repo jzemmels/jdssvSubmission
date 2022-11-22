@@ -594,17 +594,23 @@ $s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations} \\
 As discussed in the last section, we wish to identify when multiple cells agree on a particular registration.
 [Zhang et al. (2020)] proposed using the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm to identify clusters of points based on their density.
 
-\autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)}
-The algorithm has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
-In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point.
-First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} These points form the beginning of a cluster and are shown in red in \autoref{fig:dbscanIllustration}.
-The yellow points $B$ and $C$ are within the $\epsilon$-neighborhood of a core point, but are not themselves core points.
-They are also included in the cluster making the overall cluster size 8.
-Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neighborhood and is thus classified as a "noise point." Unlike other clustering algorithms, the DBSCAN algorithm does not require a specified number of expected clusters as a parameter; any points not belonging to a cluster are "noise."
+<!-- \autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)} -->
+DBSCAN has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
+<!-- In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point. -->
+First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} 
+These points form the beginning of a cluster.
+All points within an $\epsilon$-neighborhood of a core point are included in the associated cluster.
+Clusters whose core points are within each other's $\epsilon$-neighborhood are combined into a single cluster.
+Any point outside of the $\epsilon$-neighborhood of a core point are called "noise points."
+Unlike other clustering algorithms, the DBSCAN algorithm does not require a specified number of expected clusters as a parameter; any points not belonging to a cluster are "noise." 
+<!-- and are shown in red in \autoref{fig:dbscanIllustration}. -->
+<!-- The yellow points $B$ and $C$ are within the $\epsilon$-neighborhood of a core point, but are not themselves core points. -->
+<!-- They are also included in the cluster making the overall cluster size 8. -->
+<!-- Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neighborhood and is thus classified as a "noise point." -->
 
-```{r,out.width=".7\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:dbscanIllustration} Illustration of the DBSCAN algorithm [cite]. Red and yellow points are part of the same cluster with the former forming the "core" of the cluster. The blue point is not part of a cluster and is classified as a "noise point." Figure by Chire - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=17045963'}
-knitr::include_graphics("images/dbscanIllustration.png")
-```
+<!-- ```{r,out.width=".7\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:dbscanIllustration} Illustration of the DBSCAN algorithm [cite]. Red and yellow points are part of the same cluster with the former forming the "core" of the cluster. The blue point is not part of a cluster and is classified as a "noise point." Figure by Chire - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=17045963'} -->
+<!-- knitr::include_graphics("images/dbscanIllustration.png") -->
+<!-- ``` -->
 
 ```{r,cache=FALSE,include=FALSE}
 estimRotations <- compData %>%
