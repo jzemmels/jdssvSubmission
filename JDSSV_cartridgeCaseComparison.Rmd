@@ -43,7 +43,7 @@ title:
   plain:     "Automatic Matching of Cartridge Case Impressions"
   short:     "Automatic Matching of Cartridge Case Impressions"
 abstract: >
-    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. A cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Historically, forensic examiners relied on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce a cartridge case comparison algorithm that encompasseses preprocessing, feature extraction, and similarity scoring. We use a train/test split on a data set of 500 cartridge case scans to fit and validate a random forest model. We demonstrate that this random forest model yields improved accuracy compared to predominant algorithms. Finally, we use the random forest model to calculate score-based likelihood ratios that estimate the probative value of the evidence. 
+    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. A cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Historically, forensic examiners relied on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasseses preprocessing, feature extraction, and similarity scoring. We use a train/test split on a data set of 500 cartridge case scans to fit, validate, and compare random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models yields improved accuracy compared to predominant algorithms. Finally, we use the random forest model to calculate score-based likelihood ratios that estimate the probative value of the evidence. 
 keywords:
   # at least one keyword must be supplied
   formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}"]
@@ -105,6 +105,22 @@ Nonetheless, [NAS] and [PCAST] pushed for the development of "objective image pr
 # Previous Work
 
 Discuss current state of affairs for algorithmic F&T comparisons.
+
+[Vorburger et al. (2009)] proposed using the cross-correlation function (CCF) to compare 3D topographic scans of cartridge case surfaces.
+The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
+Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the \emph{registration}, between the two scans; simply choose the rotation/translation at which the CCF is maximized.
+Tai and Eddy (2017) developed a "fully automatic" cartridge case comparison pipeline that preprocessed and compared 2D images of cartridge case scans.
+
+[Song (2013)] noted that two matching cartridge cases often share similar impressions in specific regions, meaning calculating the CCF between two full scans may not highlight their similarities.
+Instead, [Song (2013)] proposed partitioning one cartridge case scan into a grid of "cells" and calculating the CCF between each cell and the other scan.
+If two cartridge cases are truly matching, then the maximum CCF value between each cell and the other scan, particularly the cells containing distinguishable breech face impressions, should be relatively large.
+Furthermore, the cells should "agree" on the registration at which the CCF is maximized.
+[Song (2013)] outlined the "Congruent Matching Cells" algorithm to determine the number of cells that agree on a particular registration.
+A cell is classified as a Congruent Matching Cell (CMC) if its estimated registration is within some threshold of the median registration across all cells and its CCF value is above some threshold.
+A number of follow-up papers proposed alterations to the the original CMC method [Tong et al. (2015), Chen et al. (2017)].
+[Zemmels et al. (2022)] provide an open-source implementation of the CMC method in the cmcR R package [cite cmcR].
+As an alternative to defining Congruent Matching Cells, Zhang et al. (2020) proposed using the Density-Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm from \cite{dbscan} to determine the number of cells in agreement on a specific registration.
+
 
 Cite Hare et al. \cite{aoas} as a parallel paper to this one applied to bullet data.
 
@@ -1321,10 +1337,6 @@ Our intention in fitting different classification models across various feature 
 As indicated by \autoref{fig:testingAccuracy}, the random forest have similar testing accuracies with the random forest being more robust to changes in feature group.
 In particular, the random forest model is better at identifying truly matching cartridge cases than the logistic regression classifier, yet worse at identifying non-matches.
 
-Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
-Ethically however, we might favor the model that makes the fewest false positive classifications since mis-classifying a truly non-matching cartridge case pair may incriminate an innocent individual.
-While the input of statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
-
 A major benefit of the CART and logistic regression models are their interpretable compared to the random forest model.
 For example, \autoref{fig:trainedCART} illustrates that classifications under the CART follow a simple set of binary rules.
 [More on CART?]
@@ -1358,6 +1370,12 @@ logisticRegOddsFactors %>%
                format = "latex",booktabs = TRUE,escape = FALSE)
 ```
 
+- Logistic regression and random forest provide continuous scores that can be used to compute SLRs
+
+Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
+Ethically however, we might favor the model that makes the fewest false positive classifications since misclassifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+Based on our results, the logistic regression model balances high accuracy and interpretability.
+However, while the input of forensic statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
 
 Discuss benefits of three models here
 
@@ -1368,7 +1386,7 @@ Discuss benefits of three models here
 
 - Random Forest seems to be more robust to changes
 
-- Logistic regression and random forest provide continuous scores that can be used to compute SLRs
+
 
 ## Comparison to Previous Work
 
