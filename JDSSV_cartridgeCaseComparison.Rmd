@@ -43,11 +43,11 @@ title:
   plain:     "Automatic Matching of Cartridge Case Impressions"
   short:     "Automatic Matching of Cartridge Case Impressions"
 abstract: >
-    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. A cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Historically, forensic examiners relied on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasseses preprocessing, feature extraction, and similarity scoring. We use a train/test split on a data set of 500 cartridge case scans to fit, validate, and compare random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models yields improved accuracy compared to predominant algorithms. Finally, we use the random forest model to calculate score-based likelihood ratios that estimate the probative value of the evidence. 
+    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. A cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Historically, forensic examiners relied on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasseses preprocessing, feature extraction, and similarity scoring. We use a train/test split on a data set of 500 cartridge case scans to fit, validate, and compare random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
 keywords:
   # at least one keyword must be supplied
-  formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}"]
-  plain:     [forensics, forensic statistics, pattern recognition, firearms and toolmarks, R]
+  formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}", random forest, cross-validation, classification]
+  plain:     [forensics, forensic statistics, pattern recognition, firearms and toolmarks, R, random forest, cross-validation, classification]
 header-includes:
   - \usepackage{float}
   - \floatplacement{figure}{H}
@@ -69,7 +69,7 @@ editor_options:
 
 \newcommand{\hh}[1]{{\textcolor{orange}{#1}}}
 \newcommand{\svp}[1]{{\textcolor{blue}{#1}}}
-\newcommand{\jz}[1]{{\textcolor{ForestGreen}{#1}}}
+\newcommand{\jz}[1]{{\textcolor{olive}{#1}}}
 
 ```{r setup, include=FALSE}
 options(prompt = 'R> ', continue = '+ ')
@@ -104,55 +104,62 @@ Nonetheless, [NAS] and [PCAST] pushed for the development of "objective image pr
 
 # Previous Work
 
-Discuss current state of affairs for algorithmic F&T comparisons.
+<!-- Discuss current state of affairs for algorithmic F&T comparisons. -->
 
-[Vorburger et al. (2009)] proposed using the cross-correlation function (CCF) to compare 3D topographic scans of cartridge case surfaces.
+[Vorburger et al. (2009)] proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
 The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
 Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the \emph{registration}, between the two scans; simply choose the rotation/translation at which the CCF is maximized.
-Tai and Eddy (2017) developed a "fully automatic" cartridge case comparison pipeline that preprocessed and compared 2D images of cartridge case scans.
+[Hare et al. (2017)] use the CCF, among other features, to compare scans of bullets.
+[Tai and Eddy (2017)] developed a "fully automatic," open-source cartridge case comparison pipeline that compared cartridge case images using the CCF.
 
-[Song (2013)] noted that two matching cartridge cases often share similar impressions in specific regions, meaning calculating the CCF between two full scans may not highlight their similarities.
+[Song (2013)] noted that two matching cartridge cases often share similar impressions in specific regions, so calculating the CCF between two full scans may not highlight their similarities.
 Instead, [Song (2013)] proposed partitioning one cartridge case scan into a grid of "cells" and calculating the CCF between each cell and the other scan.
 If two cartridge cases are truly matching, then the maximum CCF value between each cell and the other scan, particularly the cells containing distinguishable breech face impressions, should be relatively large.
 Furthermore, the cells should "agree" on the registration at which the CCF is maximized.
 [Song (2013)] outlined the "Congruent Matching Cells" algorithm to determine the number of cells that agree on a particular registration.
 A cell is classified as a Congruent Matching Cell (CMC) if its estimated registration is within some threshold of the median registration across all cells and its CCF value is above some threshold.
 A number of follow-up papers proposed alterations to the the original CMC method [Tong et al. (2015), Chen et al. (2017)].
-[Zemmels et al. (2022)] provide an open-source implementation of the CMC method in the cmcR R package [cite cmcR].
-As an alternative to defining Congruent Matching Cells, Zhang et al. (2020) proposed using the Density-Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm from \cite{dbscan} to determine the number of cells in agreement on a specific registration.
+[Zemmels et al. (2022)] introduce an open-source implementation of the CMC method in the cmcR R package [cite cmcR].
+As an alternative to defining Congruent Matching Cells, [Zhang et al. (2020)] proposed using the Density-Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm from \cite{dbscan} to determine the number of cells in agreement on a specific registration.
 
 
-Cite Hare et al. \cite{aoas} as a parallel paper to this one applied to bullet data.
+<!-- Cite Hare et al. \cite{aoas} as a parallel paper to this one applied to bullet data. -->
 
-Cite Xiao Hui's project.
+<!-- Cite Xiao Hui's project. -->
 
-Cite CMC method as predominant method. \hh{don't forget about cmcR :)}
-Broadly summarize cell-based comparison procedure and CMC method logic.
-Also reference Zhang et al. (2020) DBSCAN paper \cite{dbscan} here. \hh{XXX I don't know what you mean by Zhang et al 2020}
+<!-- Cite CMC method as predominant method. \hh{don't forget about cmcR :)} -->
+<!-- Broadly summarize cell-based comparison procedure and CMC method logic. -->
+<!-- Also reference Zhang et al. (2020) DBSCAN paper \cite{dbscan} here. \hh{XXX I don't know what you mean by Zhang et al 2020} -->
 
-Discuss limitations of current cartridge case comparison algorithms.
-Currently, there is no rigorous procedure for comparing different algorithms.
+Currently, there is no rigorous procedure for comparing different cartridge case comparison algorithms.
 This includes selecting optimal parameters for a specific algorithm.
-In this work, we introduce a novel validation procedure to learn and validate optimal parameters using a cross-validation procedure.
-
-We introduce a novel set of features to measure the similarity between two cartridge cases.
-using these features, we train and test a random forest model.
-We show that this random forest model improves upon the error rate of predominant automatic comparison algorithms.
-Additionally, we demonstrate how the random forest model can be used to calculate score-based likelihood ratios.
+[Zemmels et al. (2022)] proposed an optimization criterion to select parameters for the CMC algorithm.
+Analogously, [Hare et al. (2017)] developed a validation procedure to select parameters for their bullet comparison algorithm.
+In this work, we introduce a novel procedure to learn and validate optimal parameters using a cross-validation procedure.
 
 # Cartridge Case Data
 
-Discuss Baldwin study here. \cite{baldwin}
-Point out that it was the only appropriately-designed study according to PCAST.
-Types of cartridge cases, firearms.
-Design of the experiment (known and questioned samples).
+We use 500 cartridge cases collected as part of a study by \citet{baldwin} where 80 cartridge cases were fired from each of 25 Ruger SR9 handguns.
+The goal of the original study was to measure the false negative and false positive error rates of 218 forensic examiners.
+A false negative error occurs when truly matching cartridge cases, meaning they were fired from the same firearm, are classified as non-matches.
+Conversely, a false positive error occurs when non-matching cartridge cases are classified as matches.
+For each comparison, examiners were provided a set of three known-match cartridge cases and a single unknown-source cartridge case.
+Their task was to determine whether the unknown-source cartridge case matched the other three.
+The reported false negative error rate across all 218 examiners was 0.367% while the reported false positive error rate was 1.01%.
+However, it should be noted that "inconclusive" decisions were treated as correct, no matter the ground-truth nature of the cartridge case set.
+
+We scanned the 500 cartridge cases using the Cadre 3D-TopMatch High Capacity Scanner.
+Briefly, this scanner collected images of a gel pad into which the cartridge case surface is impressed under various lighting conditions.
+Proprietary software that comes packaged with this scanner then combines these images into a regular 2D array called a \emph{surface matrix}.
+
+\jz{[cite eventual DFSC data-in-brief or ISU datashare repo?]}
 
 Details of scanning procedure using Cadre 3D-TopMatch High Capacity Scanner.
 Describe x3p file format and surface matrices.
 
 # Methods
 
-We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES) algorithm. We divide the Methods into three broad categories:
+We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES) algorithm. We divide the methods into three stages:
 
 ```{=tex}
 \begin{enumerate}
@@ -163,7 +170,7 @@ We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES
 \item \textbf{Scoring:} measure the similarity between the two cartridge cases using a trained classifier
 \end{enumerate}
 ```
-The following sections detail each of these steps.
+The following sections detail each of these stages.
 
 ## Preprocessing
 
@@ -171,14 +178,14 @@ We first use the open-source FiX3P web application \hh{cite Talen Fisher} to man
 An example of a manually-annotated cartridge case scan is shown in \autoref{fig:annotatedScan}.
 The FiX3P software includes functionality to "paint" the surface of a cartridge case using a computer cursor and save the painted regions to a *mask.* A mask is a 2D array of hexidecimal color values of the same dimension as its associated surface matrix.
 When initialized, every element of a mask is a shade of brown (#cd7f32) by default.
-Any elements that are painted-over by the user will be replaced with the user's selected color value.
+Any elements painted over by the user will be replaced with the user's selected color value.
 In \autoref{fig:annotatedScan}, the breech face impression region was manually annotated using a shade of red (#ff0000).
 
 ```{r,out.width=".6\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:annotatedScan} A cartridge case surface is manually annotated in red using the FiX3P software. The annotated region of interest contains breech face impressions."}
 knitr::include_graphics("images/annotatedReference.png")
 ```
 
-Once read into an R environment, we use sequence of functions available in the packages [x3ptools] \cite{x3ptools} and [cmcR] \cite{cmcR} to preprocess the raw scans.
+Once read into an R environment, we apply a sequence of functions available in the R packages [x3ptools] \cite{x3ptools} and [cmcR] \cite{cmcR} to preprocess the raw scans.
 <!-- [Code] demonstrates how the [magrittr] pipe (`%>%`) operator strings together these functions. --> \autoref{fig:preProcessEffect} shows the effect that each function has on the scan surface values.
 Gray pixels in each plot represent missing values in the surface matrix.
 The `x3p_delete` function removes values in the scan based on the associated mask.
@@ -353,7 +360,7 @@ where $1 \leq m,n \leq 2k - 1$.
 The value $(a \star b)_{mn}$ quantifies the similarity between $A$ and $B$ after $B$ is translated $m$ elements horizontally and $n$ elements vertically.
 The CCF is often normalized between -1 and 1 for interpretability.
 
-For large matrices, the above definition of the CCF is computationally taxing.
+The above definition of the CCF is computationally taxing, particularly for large matrices.
 The Cross-Correlation Theorem provides an equivalent expression for the CCF:
 \begin{align*}
 (A \star B) = \mathcal{F}^{-1}\left(\overline{\mathcal{F}(A)} \odot \mathcal{F}(B)\right)
@@ -362,7 +369,7 @@ where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse 
 We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
 The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably [cite Tukey].
 
-Using the CCF as an objective function, we estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
+We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
 Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
 Then the estimated registration $(m^*,n^*,\theta^*)$ is: \begin{align*}
 (m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (a \star b_\theta)_{mn}.
@@ -388,16 +395,10 @@ Calculate rotation $\theta^* = \arg \max_{\theta} \{CCF_{\max,\theta} : \theta \
 \end{algorithm}
 ```
 
-### Handling Missingness
-
-\textbf{[Not sure what to do with this section.
-It needs to be mentioned, but in more or less detail?]}
-
-The registration estimation procedure outline above, namely the Fast Fourier Transform algorithm, does not permit missing values in $A$ or $B$.
-It is common for cartridge case scans to contain many missing values - the gray regions in [preprocessing Figure] represent structural values in the scan.
+The Fast Fourier Transform algorithm used in \autoref{alg:registration} does not permit missing values in $A$ or $B$.
+It is common for cartridge case scans to contain many missing values - the gray regions in \autoref{fig:matchPair} represent structural values in the scan.
 Thus, when calculating the CCF we impute these missing values with the average non-missing value in the scan.
-
-We wish to measure the similarity between $A$ and $B$ while taking this missingness into account; to measure the similarity between the non-missing intersection of the aligned scans.
+To measure the similarity between $A$ and $B$ while accounting for missingness, we calculate the correlation between the non-missing intersection of the aligned scans.
 We compute the *pairwise-complete correlation* using only the complete value pairs, meaning neither value is missing, between $A$ and $B$.
 
 ### Registration-Based Features
@@ -415,7 +416,7 @@ We repeat this in the other comparison direction to obtain $cor_{\text{full},B}$
 \begin{align*}
 cor_{\text{full}} = \frac{1}{2}\left(cor_{A,\text{full}} + cor_{B,\text{full}}\right).
 \end{align*}
-We assume that the **average full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
+We assume that the **full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
 
 <!-- \hline -->
 <!-- $CCF_{\max}$ & Maximum value of the cross-correlation function across a grid of rotations \\ -->
@@ -462,13 +463,14 @@ Calculate translation $[m^*_{A,t,\theta},n^*_{A,t,\theta}] = \arg \max_{m,n} (a_
 ```
 
 Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_A$ of translations and CCF values for each cell and each rotation considered.
+
 \autoref{fig:cellGridExample} shows the estimated registrations of cells between two non-match cartridge cases.
 We magnify the surface values captured by cell pairs 5, 1 and 7, 7 and note the similarities in the surface values; for example, the dark purple region in the middle of the cell 7, 7 pair.
-[More discussion on why ]
+\jz{[More discussion on alignment in the figure. Include why it's important to focus on similarities, measured with the correlation, etc., as well as differences to fully understand whether a pair of cartridge cases match. We're bound to find similarities between two cartridge cases if that's all we look for.]}
 
 If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.
 This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
-The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[17,-16]$.
+The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[m,n] \approx [17,-16]$.
 This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
 The task is to determine when cells reach a registration consensus.
 
@@ -516,13 +518,13 @@ ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, he
 knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 ```
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[\\hat{m}, \\hat{n}] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[m, n] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
 knitr::include_graphics("figures/estimatedTranslationFaceted.png")
 ```
 
 Just as with the whole-scan registration, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_{A,\theta},n^*_{A,\theta}]$.
-From this we obtain a set of pairwise-complete correlations for each rotation: $\{cor_{A,t,\theta} : \theta \in \pmb{\Theta}'_A\}$.
-This whole procedure is repeated using $B$ as the source scan and $A^*$ as the target, resulting in registration set $\pmb{F}_B$ and pairwise-complete correlations $\{cor_{B,t,\theta} : \theta \in \pmb{\Theta}'_B\}$.
+From this we obtain a set of pairwise-complete correlations for each cell and rotation: $\{cor_{A,t,\theta} : t = 1,...,T_A, \theta \in \pmb{\Theta}'_A\}$.
+This whole procedure is repeated using $B$ as the source scan and $A^*$ as the target, resulting in registration set $\pmb{F}_B$ and pairwise-complete correlations $\{cor_{B,t,\theta} : t = 1,...,T_B, \theta \in \pmb{\Theta}'_B\}$.
 
 For $d = A,B$ and $t = 1,...,T_d$, define the cell-wise maximum CCF and pairwise-complete correlation as: 
 \begin{align*}
@@ -846,7 +848,7 @@ if(!file.exists("data/compData_fullScans.RData")){
 }
 ```
 
-```{r,cache=TRUE,include=FALSE}
+```{r,cache=FALSE,include=FALSE}
 load("data/compData_fullScans.RData")
 
 scanA <- compData_fullScans %>%
@@ -914,7 +916,7 @@ We use a connected components labeling algorithm detailed in [Haralick and Shapi
 More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{d,1},S_{d,2},...,S_{d,L_d}\}$ where each $S_{d,l}$ is a set of indices of the $cond$ matrix that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
 The right side of \autoref{fig:filterLabeling} shows each $S_{d,l}$ distinguished by different fill colors, $l = 1,...,L_d$.
 
-```{r,include=FALSE,cache = TRUE}
+```{r,include=FALSE,cache = FALSE}
 plt1 <- ggplot_build(compPlt$patches$plots[[3]])
 
 plt1 <- plt1$data[[2]] %>%
@@ -1352,17 +1354,17 @@ load("data/logisticRegOddsMultipliers.RData")
 
 logisticRegOddsFactors %>%
   slice(1:5) %>%
-  mutate(logistOddsFactor = case_when(varName == "noClusterIndTRUE" ~ "$3.8 \\times 10^{47}$",
-                             varName == "differenceCor_ave" ~ "1,242.0",
-                             varName == "cell_theta_sd" ~ "67.1",
-                             varName == "clustCenterDiff" ~ "1.8",
-                             varName == "cell_x_sd" ~ "1.1",
+  mutate(logistOddsFactor = case_when(varName == "noClusterIndTRUE" ~ "$2.8 \\times 10^{40}$",
+                             varName == "differenceCor_ave" ~ "9,934.6",
+                             varName == "cell_theta_sd" ~ "243.7",
+                             varName == "clustCenterDiff" ~ "1.5",
+                             varName == "cell_y_sd" ~ "1.1",
                              TRUE ~ "")) %>%
   mutate(varName = case_when(varName == "noClusterIndTRUE" ~ "Cluster Indicator",
                              varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
                              varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
                              varName == "clustCenterDiff" ~ "Estimated Translation Difference",
-                             varName == "cell_x_sd" ~ "Cell-Based Horizontal Translation SD",
+                             varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
                              TRUE ~ "")) %>%
   knitr::kable(col.names = c("Feature Name","Odds Multiplier"),
                align = "c",label = "logistOddsMult",
