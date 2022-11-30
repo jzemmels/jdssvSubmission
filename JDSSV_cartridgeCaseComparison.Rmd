@@ -92,12 +92,28 @@ Introduce the problem here.
 Explain what a cartridge case is.
 Explain breech face impressions.
 
-The "ground-truth" of a forensic comparison is a binary classification problem.
-Briefly reference how comparisons are done by examiners currently.
-Keep focus on firearm and toolmark evidence.
+Police arrive at the scene of a fatal shooting.
+It's clear that the perpetrator has fled, but the police find spent 9mm \emph{cartridge cases} - a metal casing that houses the bullet, gunpowder, and primer - on the ground near the victim's body.
+They hear on the radio that a suspect in possession of a handgun has been detained nearby.
+How can the police determine whether this individual was the shooter?
 
-Critics of traditional firearm and toolmark comparisons cite a lack of foundational validity (NAS 2009, PCAST 2016). \cite{nas2009, pcast}
-Discuss what PCAST means by foundational validity and how firearm and toolmark evidence falls short according to NAS & PCAST.
+Test fires are collected from the suspect's gun.
+These "known source" cartridge cases, along with the "questioned" cartridge case found at the crime scene, are sent to a forensic laboratory for examination.
+A forensic examiner inspects these cartridge cases for \emph{breech face impressions}, which are markings left on the base of the cartridge case when it comes into contact with the back wall, or "breech face," of a barrel during the firing process.
+Using a microscope, the examiner assesses the similarity between the markings on the cartridge case surfaces.
+The examiner's task is to conclude whether or not they originated from the same firearm.
+
+<!-- Forensic examinations measure the probative value of a piece of evidence. -->
+<!-- Typically, a forensic examiner visually inspects the evidence to determine its source. -->
+
+<!-- The "ground-truth" of a forensic comparison is a binary classification problem. -->
+<!-- Briefly reference how comparisons are done by examiners currently. -->
+<!-- Keep focus on firearm and toolmark evidence. -->
+
+The situation described above outlines a traditional firearm and toolmark evidence examination [cite Thompson book].
+Critics of traditional comparisons cite a lack of foundational validity (NAS 2009, PCAST 2016). \cite{nas2009, pcast}
+For example, many have pointed out that the range of conclusions put forth by the by Association of Firearm and Toolmark Examiners are [vague and recursively defined].
+[Discuss what PCAST means by foundational validity and how firearm and toolmark evidence falls short according to NAS & PCAST.]
 Recent studies of examiner proficiency estimate error rates to be low - between % and % according to [Baldwin].
 Nonetheless, [NAS] and [PCAST] pushed for the development of "objective image processing algorithms to....[quote PCAST here...]." An automatic comparison algorithm could be used as part of an examination to supplement or inform an examiner's opinion [cite Swofford taxonomy paper here].
 \cite{swofford}
@@ -1372,12 +1388,16 @@ logisticRegOddsFactors %>%
                format = "latex",booktabs = TRUE,escape = FALSE)
 ```
 
-- Logistic regression and random forest provide continuous scores that can be used to compute SLRs
+<!-- - Logistic regression and random forest provide continuous scores that can be used to compute SLRs -->
 
 Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy.
 Ethically however, we might favor the model that makes the fewest false positive classifications since misclassifying a truly non-matching cartridge case pair may incriminate an innocent individual.
 Based on our results, the logistic regression model balances high accuracy and interpretability.
 However, while the input of forensic statisticians is important, this decision needs to be weighed by the wider forensic and legal communities.
+
+\autoref{fig:testingAccuracy} indicates the impact that each group of features has on the true positive and true negative rate of the three classifiers.
+Density-based features have a large impact on true negative and true positive rate. 
+Registration-based and visual diagnostic features have more of an impact on the true positive rate.
 
 Discuss benefits of three models here
 
@@ -1387,7 +1407,6 @@ Discuss benefits of three models here
 - It also performs similar to the random forest
 
 - Random Forest seems to be more robust to changes
-
 
 
 ## Comparison to Previous Work
