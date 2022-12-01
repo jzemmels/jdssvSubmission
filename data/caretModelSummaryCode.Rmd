@@ -44,7 +44,7 @@ dat <- caretModels %>%
   filter(featureGroup == "All Features" & modelType == "Random Forest" ) %>%
   pull(fittedModel)
 
-plt <- 
+registrationFeaturesPlt <- 
   dat[[1]]$trainingData %>%
   select(!contains("ccf")) %>%
   select(contains("_mean"),contains("_sd"),"pairwiseCompCor",.outcome) %>%
@@ -84,21 +84,90 @@ plt <-
                                              "Full-Scan Pairwise Complete Correlation",
                                              "Cell-Based Pairwise Complete Correlation Mean",
                                              "Cell-Based Pairwise Complete Correlation SD"))) %>%
+  filter(!(varName %in% c("Full-Scan Pairwise Complete Correlation",
+                                             "Cell-Based Pairwise Complete Correlation Mean",
+                                             "Cell-Based Pairwise Complete Correlation SD"))) %>%
   # group_by(varName) %>%
   # mutate(value = ifelse(round(value,3) == median(round(value,3)),NA,value)) %>%
   ggplot(aes(x = value,fill = .outcome)) +
   geom_density(alpha = .5) +
-  facet_wrap(~varName,scales = "free",labeller = label_wrap_gen(width = 30)) +
+  facet_wrap(~varName,scales = "free",labeller = label_wrap_gen(width = 40)) +
   theme_bw() +
   theme(legend.position = "bottom",
         axis.title.y = element_blank(),
-        axis.title.x = element_text(size = 9),
-        strip.text = element_text(size = 7)) +
-  scale_fill_manual(values = c("blue","gray50")) +
+        axis.title.x = element_text(size = 8),
+        strip.text = element_text(size = 6),
+        axis.text = element_text(size = 7)) +
+  scale_fill_manual(values = c("orange","gray50")) +
   labs(fill = "Outcome",
        x = "Feature Value")
 
+correlationFeaturesPlt <- 
+  dat[[1]]$trainingData %>%
+  select(!contains("ccf")) %>%
+  select(contains("_mean"),contains("_sd"),"pairwiseCompCor",.outcome) %>%
+  select(!contains("difference")) %>%
+  mutate(cell_x_mean = abs(cell_x_mean),
+         cell_y_mean = abs(cell_y_mean),
+         cell_theta_mean = abs(cell_theta_mean)) %>%
+  pivot_longer(cols = !contains(".outcome"),names_to = "varName") %>%
+  mutate(varName = 
+           case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
+                     varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
+                     varName == "clusterSize_ave" ~ "Cluster Size",
+                     varName == "cell_y_mean" ~ "Cell-Based Vertical Translation Mean",
+                     varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
+                     varName == "thetaDiff" ~ "Estimated Rotation Difference",
+                     varName == "cell_x_mean" ~ "Cell-Based Horizontal Translation Mean",
+                     varName == "cell_x_sd" ~ "Cell-Based Vertical Translation SD",
+                     varName == "pairwiseCompCor" ~ "Full-Scan Pairwise Complete Correlation",
+                     varName == "clustCenterDiff" ~ "Estimated Translation Difference",
+                     varName == "fullScan_neighborhoodSizeAve_ave" ~ "Full-Scan Average Labeled Neighborhood Size",
+                     varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
+                     varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
+                     varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
+                     varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     TRUE ~ "")) %>%
+  mutate(varName = factor(varName,levels = c("Cell-Based Vertical Translation Mean",
+                                             "Cell-Based Horizontal Translation Mean",
+                                             "Cell-Based Rotation Mean",
+                                             "Cell-Based Vertical Translation SD",
+                                             "Cell-Based Horizontal Translation SD",
+                                             "Cell-Based Rotation SD",
+                                             "Full-Scan Pairwise Complete Correlation",
+                                             "Cell-Based Pairwise Complete Correlation Mean",
+                                             "Cell-Based Pairwise Complete Correlation SD"))) %>%
+  filter(varName %in% c("Full-Scan Pairwise Complete Correlation",
+                                             "Cell-Based Pairwise Complete Correlation Mean",
+                                             "Cell-Based Pairwise Complete Correlation SD")) %>%
+  # group_by(varName) %>%
+  # mutate(value = ifelse(round(value,3) == median(round(value,3)),NA,value)) %>%
+  ggplot(aes(x = value,fill = .outcome)) +
+  geom_density(alpha = .5) +
+  facet_wrap(~varName,scales = "free",labeller = label_wrap_gen(width = 40)) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        axis.title.y = element_blank(),
+        axis.title.x = element_text(size = 8),
+        strip.text = element_text(size = 6),
+        axis.text = element_text(size = 7)) +
+  scale_fill_manual(values = c("orange","gray50")) +
+  labs(fill = "Outcome",
+       x = "Feature Value")
+
+plt <- (registrationFeaturesPlt /
+    plot_spacer() /
+    correlationFeaturesPlt) +
+  patchwork::plot_layout(guides = "collect",heights = c(1,.2,.33)) &
+  theme(legend.position = "bottom")
+
 ggsave(plot = plt,filename = "../images/registrationFeatureDensities.png",height = 5,width = 7)
+knitr::plot_crop("../images/registrationFeatureDensities.png")
 ```
 
 ```{r}
@@ -151,7 +220,7 @@ clusterIndicator <- densityFeatures %>%
   theme_bw() +
   theme(legend.position = "none",
         axis.title = element_text(size = 8)) +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   labs(x = "Cluster Indicator",
        y = "Proportion",
        fill = "Outcome") +
@@ -173,7 +242,7 @@ clusterSize_missing <- densityFeatures %>%
   ggplot() +
   geom_bar(aes(x = value,y = n,fill = type),stat = "identity",alpha = .5,width = 1) +
   facet_wrap(~missingValue,scales = "free",labeller = label_wrap_gen(width = 10)) +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   theme_bw() +
   scale_x_continuous(breaks = c(0,5,10,15,20),
                      labels = c("NA","5","10","15","20")) +
@@ -201,7 +270,7 @@ clusterSize_nonMissing <-densityFeatures %>%
            alpha = .5,width = .5) +
   # geom_histogram(aes(x = value,y = ..percent..,fill = type),binwidth = 1,alpha = .5) +
   # facet_wrap(~missingValue,scales = "free") +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   theme_bw() +
   scale_x_continuous(breaks = c(0,5,10,15,20),
                      labels = c("NA","5","10","15","20")) +
@@ -222,7 +291,7 @@ rotationDifference <- densityFeatures %>%
   ggplot() +
   geom_histogram(aes(x = value,y = ..density..,fill=type),
                  alpha=.5,binwidth = 3,position = "identity") +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   theme_bw() +
   theme(legend.position = "none",
         axis.title = element_text(size = 8)) +
@@ -237,7 +306,7 @@ translationDifference <- densityFeatures %>%
   filter(varName == "Estimated Translation Difference" & !is.na(value)) %>%
   ggplot() +
   geom_histogram(aes(x = value,fill = type),alpha = .5,binwidth = 1) +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   theme_bw() +
   theme(legend.position = "bottom",
         axis.title = element_text(size = 8)) +
@@ -267,6 +336,7 @@ densityFeatureDistributions <- ((((clusterSize_missing | clusterSize_nonMissing)
   theme(legend.position = "bottom")
 
 ggsave(plot = densityFeatureDistributions,filename = "../images/densityFeatureDistributions.png",height = 5,width = 7)
+knitr::plot_crop("../images/densityFeatureDistributions.png")
 ```
 
 
@@ -312,15 +382,20 @@ plt <- caretData %>%
   ggplot() +
   geom_density(aes(x = value,fill = type),alpha = .5) +
   theme_bw() +
-  scale_fill_manual(values = c("blue","gray50")) +
+  scale_fill_manual(values = c("orange","gray50")) +
   facet_wrap(~varName,scales = "free",
              labeller = label_wrap_gen(width = 30)) +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom",
+        axis.title.y = element_blank(),
+        axis.title.x = element_text(size = 8),
+        strip.text = element_text(size = 6),
+        axis.text = element_text(size = 7)) +
   labs(y = "Density",
        x = "Feature Value",
        fill = "Outcome")
 
-ggsave(filename = "../images/visualDiagnosticDensities.png",plot = plt,width = 7,height = 5)
+ggsave(filename = "../images/visualDiagnosticDensities.png",plot = plt,width = 7,height = 3)
+knitr::plot_crop("../images/visualDiagnosticDensities.png")
 ```
 
 
