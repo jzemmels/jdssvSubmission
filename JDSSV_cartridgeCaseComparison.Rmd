@@ -105,7 +105,7 @@ Depending on the outcome of this comparison, the forensic examiner decides if th
 
 Critics of traditional comparisons cite a lack of "foundational validity" underlying the procedures used by firearm and toolmark examiners \citep{nas2009,pcast}.
 In particular, examiners rely largely on their subjective findings rather than on a well-defined procedure to quantify similarity.
-\citet{pcast} push for "developing and testing image-analysis algorithms" to objectively measure the similarity between cartridge cases.
+\citet{pcast} pushed for "developing and testing image-analysis algorithms" to objectively measure the similarity between cartridge cases.
 An automatic comparison algorithm could be used as part of an examination to supplement or inform an examiner's opinion \citep{swofford}.
 
 We introduce a novel Automatic Cartridge Evidence Scoring (ACES) algorithm to objectively compare cartridge case evidence based on their breech face impressions.
@@ -113,8 +113,8 @@ Our algorithm encompasses all stages of the comparison procedure after collectin
 Our ACES algorithm is available open-source as part of the [scored](https://jzemmels.github.io/scored/) R package.
 
 We first review recently proposed algorithms to compare firearm evidence.
-We then discuss the data collection procedure used to obtain 510 cartridge scans used to train and validate the ACES algorithm.
-To our knowledge, this is the largest published study of a cartridge case comparison algorithm to-date, with the next largest combining four different data sets totaling 195 cartridge cases \citep{chen_convergence_2017}.
+We then discuss the data collection procedure to obtain 510 cartridge scans used in training and validating the ACES algorithm.
+To our knowledge, this is the largest published study of a cartridge case comparison algorithm to-date, with the next largest analyzing four different data sets totaling 195 cartridge cases \citep{chen_convergence_2017}.
 After describing the ACES algorithm, we present summary results from training and testing three binary classifier models: a random forest, logistic regression, and classification and regression tree.
 We discuss the strengths and weaknesses of the three classifier models and compare the relative importance of the ACES features.
 We also argue that the ACES algorithm combines the classification rules of previously proposed cartridge case comparison algorithms while incorporating additional nuance.
@@ -136,12 +136,12 @@ Furthermore, the cells should "agree" on the registration at which the CCF is ma
 A cell is classified as a Congruent Matching Cell (CMC) if its estimated registration is within some threshold of the median registration across all cells and its CCF value is above some threshold.
 A number of follow-up papers proposed alterations to the the original CMC method \citep{tong_improved_2015,chen_convergence_2017}.
 [Zemmels et al. (2022)] introduce an open-source implementation of the CMC method in the cmcR R package \citep{cmcR}.
-As an alternative to defining Congruent Matching Cells, \citet{zhang_convergence_2021} proposed using the Density-Based Spatial Clustering with Applications to Noise (DBSCAN) algorithm from \cite{dbscan} to determine the number of cells in agreement on a specific registration.
+As an alternative to defining Congruent Matching Cells, \citet{zhang_convergence_2021} proposed using a clustering algorithm from \cite{dbscan} to determine the number of cells in agreement on a specific registration.
 
 Currently, there is no rigorous procedure for comparing different cartridge case comparison algorithms.
 This includes selecting optimal parameters for a specific algorithm.
 [Zemmels et al. (2022)] proposed an optimization criterion to select parameters for the CMC algorithm.
-Analogously, \citet{aoas} developed a validation procedure to select parameters for their bullet comparison algorithm.
+Analogously, \citet{aoas} developed a validation procedure to select parameters for a bullet comparison algorithm.
 In this work, we introduce a novel cross-validation procedure to learn and test optimal parameters for our algorithm.
 
 # Cartridge Case Data
@@ -149,21 +149,20 @@ In this work, we introduce a novel cross-validation procedure to learn and test 
 We use 510 cartridge cases collected as part of a study by \citet{baldwin} where 80 cartridge cases were fired from each of 25 Ruger SR9 handguns.
 According to \citet{pcast}, this is the only study to-date to be "appropriately designed to test the foundational validity and estimate reliability [of firearm and toolmark examiner conclusions]."
 The goal of the original study was to measure the false negative and false positive error rates of 218 forensic examiners.
-A false negative error occurs when truly matching cartridge cases, meaning they were fired from the same firearm, are classified as non-matches.
+A false negative error occurs when truly matching cartridge cases, fired from the same firearm, are classified as non-matches.
 Conversely, a false positive error occurs when non-matching cartridge cases are classified as matches.
 For each comparison, examiners were provided a set of three known-match cartridge cases and a single unknown-source cartridge case.
 Their task was to determine whether the unknown-source cartridge case matched the other three.
 The reported false negative error rate across all 218 examiners was 0.367% while the reported false positive error rate was 1.01%.
-However, it should be noted that "inconclusive" decisions were treated as correct, no matter the ground-truth nature of the cartridge case set.
+However, it should be noted that "inconclusive" decisions were treated as correct, no matter the ground-truth nature of the cartridge case set \citep{hofmann_inconclusives_2021}.
 
-We scanned the 510 cartridge cases using the Cadre 3D-TopMatch High Capacity Scanner.
-Briefly, this scanner collected images of a gel pad into which the cartridge case surface is impressed under various lighting conditions.
-Proprietary software that comes packaged with this scanner then combines these images into a regular 2D array called a \emph{surface matrix}.
+We scanned the 510 cartridge cases using the Cadre 3D-TopMatch High Capacity Scanner \citep{topmatch}.
+Briefly, this scanner collects images under various lighting conditions of a gel pad into which the cartridge case surface is impressed.
+Proprietary software that accompanies this scanner combines these images into a regular 2D array called a \emph{surface matrix}.
+This surface matrix, along with metadata concerning parameters under which the scan was taken (size, resolution, author, etc.), are stored in the ISO standard XML 3D Surface Profile (\texttt{x3p}) file type \citep{ISO25178-72}.
+
 
 \jz{[cite eventual DFSC data-in-brief or ISU datashare repo?]}
-
-Details of scanning procedure using Cadre 3D-TopMatch High Capacity Scanner.
-Describe x3p file format and surface matrices.
 
 # Methods
 
@@ -178,7 +177,9 @@ We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES
 \item \textbf{Scoring:} measure the similarity between the two cartridge cases using a trained classifier
 \end{enumerate}
 ```
+
 The following sections detail each of these stages.
+Throughout, we treat "surface matrix" and "scan" synonymously.
 
 ## Preprocessing
 
@@ -306,7 +307,7 @@ Next, we compute a set of similarity features for two preprocessed cartridge cas
 ## Comparing
 
 In this section, we introduce a set of similarity features for two cartridge case scans.
-We calculate features at two scales: between two whole scans and between individual cells similar to the CMC method.
+We calculate features at two scales: between two full scans and between individual cells similar to the CMC method.
 Analogous to how a forensic examiner uses a comparison microscope with different magnification levels, this allows us to assess the similarity between two scans at the macro and micro levels.
 
 ### Notational Conventions
@@ -316,7 +317,7 @@ Let $A$ and $B$ denote two surfaces matrices that we wish to compare.
 For simplicity, we assume that $A,B \in \mathbb{R}^{k \times k}$ for $k > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
 Due to the presence of (structurally) missing values around the breech face impression region, additional padding does not interfere with the structure of the scan.}
 We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$th row and $j$th column, starting from the top-left corner, of matrix $A$.
-Throughout this section, we will use the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
+We refer to the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
 
 To accommodate structurally-missing values, we adapt standard matrix algebra as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing, otherwise standard matrix algebra holds.
 For example, the addition operator is defined as:
@@ -763,13 +764,13 @@ C &= \frac{1}{2}\left(|\pmb{C}_A| + |\pmb{C}_B|\right) \\
 C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
 \Delta_\theta &= |\hat{\theta}_A + \hat{\theta}_B| \\
 \Delta_{\text{trans}} &= \sqrt{(\hat{m}_A + \hat{m}_B)^2 + (\hat{n}_A + \hat{n}_B)^2}
-\end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identify function equals 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
+\end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identity function equal to 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
 We use both $C$ and $C_0$ because of potential missingness in the values of $C$ if no cluster is identified.
 Missing $C$ values are imputed using the median non-missing value when fitting classifiers, so the missingness information is retained in $C_0$.
 
 \autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
 The stacked bar chart in the top-left shows the proportion of comparisons where no DBSCAN cluster is identified by outcome (match or non-match).
-We see that the vast majority of comparisons for which no DBSCAN cluster is identified are non-match comparisons. indicating that $C_0$ is a good indicator of outcome.
+We see that the vast majority of comparisons for which no DBSCAN cluster is identified are non-match comparisons. indicating that $C_0$ is a good indicator of ground-truth.
 In fact, there is only one non-match comparison that resulted in a DBSCAN cluster.
 It's difficult to see in the plots, but the $C$ value for this non-match pair is 5 and the $\Delta_{\text{trans}}$ value is 23.9.
 As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
@@ -1023,7 +1024,7 @@ knitr::include_graphics("images/visualDiagnosticDensities.png")
 ```
 
 
-\autoref{tab:visualDiagnosticFeatures} summarizes the 7 features calculated based on the visual diagnostics.
+\autoref{tab:visualDiagnosticFeatures} summarizes the six features calculated based on the visual diagnostics.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -1061,15 +1062,15 @@ $\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wis
 
 We randomly split the cartridge case data set into 10 barrels for training and 15 barrels for testing.
 Multiple cartridge cases were fired from each barrel, so this resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
+We compute the 16 ACES features for each comparison.
 
 We perform 10-fold cross-validation to train binary classifiers.
-We compare the results of three classifiers: based on a logistic regression, a classification tree \cite{rpart}, and a random forest \citep{randomForest, breiman}. We make use of the testing/training infrastructure of the \pkg{caret} package \cite{caret}. 
+We compare the results of three classifiers: based on a logistic regression, a classification tree \citep{rpart}, and a random forest \citep{randomForest, breiman}. We make use of the training/testing infrastructure of the \pkg{caret} R package \citep{caret}. 
 
 \jz{[Write full logistic regression model?]}
 
-We consider the pros and cons of each of these models.
-The logistic regression and CART models are more interpretable than a random forest yet, as we will see, a random forest tends to be more accurate.
-The following section detail the results of this cross-validation procedure.
+We use the per-comparison binary classifications and class probabilities computed by these classifiers as measures of similarity.
+The following section details the results of this cross-validation procedure.
 
 # Results
 
@@ -1344,6 +1345,51 @@ knitr::include_graphics("figures/testAccuracy.png")
 
 # Discussion
 
+## Importance of Feature Sets
+
+\autoref{fig:testingAccuracy} indicates the impact that each group of features has on the true positive and true negative rate of the three classifiers.
+Density-based features have a large impact on true negative and true positive rate. 
+Registration-based and visual diagnostic features have more of an impact on the true positive rate.
+
+\citet{zhang_convergence_2021} proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
+This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
+Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that basing a classifier on $C_0$ is reasonable.
+However, information about the size and location of clusters in a classifier adds nuance as indicated by the ranking of $\Delta_{\theta}$, $\Delta_{\text{trans}}$, and $C$ in \autoref{fig:rfVarImpPlt}.
+For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large - 23.9 pixels as shown in \autoref{fig:densityDistributions}.
+While a classifier based solely on $C_0$ would misclassify this pair, the ACES random forest and logistic regression models correctly classify this pair as a non-match.
+
+Cells identified as part of a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) to the one given in \citep{song_proposed_2013}.
+While the intention behind the CMC method and the density-based ACES features is the same, which is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
+In the original CMC algorithm, a cell is called a CMC if its estimated registration is within some threshold of a reference value, typically the median registration across all cells.
+The registration thresholds are set manually in most CMC papers except for [Zemmels et al. (2022)] where they are selected based on an optimization criterion.
+As discussed in [Zemmels et al. (2022)], the CMC algorithm is quite sensitive to the choice of thresholds as well as to noisiness in the cell-based registrations.
+In the ACES algorithm, we measure agreement as the number of cells that are close to each other rather than to a reference registration.
+The estimated registration is simply a byproduct of the DBSCAN algorithm (e.g., treating cluster centroids as the estimated translations).
+Further, we simplify optimization by defining "closeness" through the single $\epsilon$ parameter of the DBSCAN algorithm instead of three threshold parameters (horizontal/vertical translation and rotation) in the CMC algorithm.
+
+\citep{song_proposed_2013} measures the similarity between two cartridge cases using the total number of CMCs and proposes classifying a pair as matching if the CMC count exceeds five.
+Considering the DBSCAN cluster size $C$ as analogous to the CMC count, a decision boundary for $C$ equal to five seems reasonable; especially in light of the distribution of $C$ shown in \autoref{fig:densityDistributions}.
+Similarly, reasonable decision boundaries based on \autoref{fig:densityDistributions} are $3^\circ$ for rotation $\Delta_{\theta}$ and 10 pixels for translation $\Delta_{\text{trans}}$.
+These are similar to manually-selected thresholds chosen in various CMC papers \cite{tong_improved_2015,chen_convergence_2017}.
+
+The ACES algorithm substantiates the conclusions made by previous authors of cartridge case comparison algorithms.
+It also combines their decision rules while adding important nuance.
+
+\jz{[Include why it's important to focus on similarities, measured with the correlation, etc., as well as differences to fully understand whether a pair of cartridge cases match. 
+We're bound to find similarities between two cartridge cases if that's all we look for.]}
+
+While the registration and density-based features share similarities with previously proposed algorithms, the visual diagnostic features are completely novel.
+The visual diagnostic features quantify what our intuition says should be true about matching cartridge case scans: that their surface markings should be similar.
+We intend these visual diagnostics to be useful not only for engineering features for a classification algorithm, but also in explaining the behavior of the such algorithms.
+Visuals such as the comparison plot in \autoref{fig:fullScan_comparisonPlot} partition a pair of scans into similar and different regions.
+[Discuss features that can be explained by similarities such as correlation].
+The filtered differences tend to emphasize the most extreme values on the two cartridge case surfaces.
+We have found the cell-based comparison procedure to be sensitive to such extreme regions; in particular, cells from the source scan naturally "gravitate" towards extreme regions in the target scan.
+This phenomenon often explains noise in the cell-based estimated registrations, such as in \autoref{fig:estimatedTranslationFaceted}, which directly affects the quality of the signal in the registration and density-based features.
+Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
+As such, it is important that forensic examiners be able to interpret and explain the results of a comparison algorithm.
+The visual diagnostic features discussed in this paper are demonstrably useful in understanding the ACES algorithm's behavior.
+
 ## Comparing Models
 
 Our intention in fitting different classification models across various feature sets was to explore each model's strengths and weaknesses.
@@ -1410,51 +1456,6 @@ cmcTest <- data.frame(errorType = rep(c("Accuracy","True Neg. Rate","True Pos. R
                                       times = 3),
                       featureGroup = "CMC")
 ```
-
-## Importance of Feature Sets
-
-\autoref{fig:testingAccuracy} indicates the impact that each group of features has on the true positive and true negative rate of the three classifiers.
-Density-based features have a large impact on true negative and true positive rate. 
-Registration-based and visual diagnostic features have more of an impact on the true positive rate.
-
-\citet{zhang_convergence_2021} proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
-This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
-Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that basing a classifier on $C_0$ is reasonable.
-However, information about the size and location of clusters in a classifier adds nuance as indicated by the ranking of $\Delta_{\theta}$, $\Delta_{\text{trans}}$, and $C$ in \autoref{fig:rfVarImpPlt}.
-For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large: 23.9 pixels as shown in \autoref{fig:densityDistributions}.
-While a classifier based solely on $C_0$ would misclassify this pair, the ACES random forest and logistic regression models correctly classify this pair as a non-match.
-
-Cells identified as part of a DBSCAN cluster could be considered an alternative definition of a "Congruent Matching Cell" (CMC) as defined in \citep{song_proposed_2013}.
-While the intention behind the CMC method and the density-based ACES features is the same, which is to determine the number of cells that "agree" on a registration value, the manner in which agreement is measured differs.
-In the original CMC algorithm, a cell is called a CMC if its estimated registration is within some threshold of a reference value, typically the median registration across all cells.
-The registration thresholds are set manually in most CMC papers except for [Zemmels et al. (2022)] where they are selected based on an optimization criterion.
-As discussed in [Zemmels et al. (2022)], the CMC algorithm is quite sensitive to the choice of thresholds as well as to noisiness in the cell-based registrations.
-In the ACES algorithm, we measure agreement by the number of cells that are close to each other rather than to a reference registration.
-The estimated registration is simply a byproduct of the DBSCAN algorithm (e.g., treating cluster centroids as the estimated translations).
-Further, we simplify optimization by defining "closeness" through the single $\epsilon$ parameter of the DBSCAN algorithm instead of three threshold parameters (horizontal/vertical translation and rotation) in the CMC algorithm.
-
-\citep{song_proposed_2013} measures the similarity between two cartridge cases using the total number of CMCs and proposes classifying a pair as matching if the CMC count exceeds five.
-Considering the DBSCAN cluster size $C$ as analogous to the CMC count, a decision boundary for $C$ equal to five seems reasonable; especially in light of the distribution of $C$ shown in \autoref{fig:densityDistributions}.
-Similarly, reasonable matching registration cutoffs based on \autoref{fig:densityDistributions} are $3^\circ$ for rotation and 10 pixels for translation.
-These are similar to manually-selected thresholds used across various CMC papers \cite{tong_improved_2015,chen_convergence_2017}.
-
-The ACES algorithm substantiates the conclusions made by previous authors of cartridge case comparison algorithms.
-It also combines their decision rules while adding important nuance.
-
-Include why it's important to focus on similarities, measured with the correlation, etc., as well as differences to fully understand whether a pair of cartridge cases match. 
-We're bound to find similarities between two cartridge cases if that's all we look for.
-
-While the registration and density-based features share similarities with previously proposed algorithms, the visual diagnostic features are completely novel.
-The visual diagnostic features quantify what our intuition says should be true about matching cartridge case scans: that their surface markings should be similar.
-We intend these visual diagnostics to be useful not only for engineering features for a classification algorithm, but also in explaining the behavior of the such algorithms.
-Visuals such as the comparison plot in \autoref{fig:fullScan_comparisonPlot} partition a pair of scans into similar and different regions.
-[Discuss features that can be explained by similarities such as correlation].
-The filtered differences tend to emphasize the most extreme values on the two cartridge case surfaces.
-We have found the cell-based comparison procedure to be sensitive to such extreme regions; in particular, cells from the source scan naturally "gravitate" towards extreme regions in the target scan.
-This phenomenon often explains noise in the cell-based estimated registrations, such as in \autoref{fig:estimatedTranslationFaceted}, which directly affects the quality of the signal in the registration and density-based features.
-Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
-As such, it is important that forensic examiners be able to interpret and explain the results of a comparison algorithm.
-The visual diagnostic features discussed in this paper are demonstrably useful in understanding the ACES algorithm's behavior.
 
 # Conclusion
 
