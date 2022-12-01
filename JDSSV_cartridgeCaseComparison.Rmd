@@ -125,7 +125,7 @@ We conclude with our thoughts on how cartridge case comparison algorithms should
 \citet{vorburger_surface_2007} proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
 The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
 Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the \emph{registration}, between the two scans; simply choose the rotation/translation at which the CCF is maximized.
-\citet{aoas} use the CCF, among other features, to compare scans of bullets.
+\citet{aoas} used the CCF, among other features, to compare scans of bullets.
 \citet{tai_fully_2018} developed a "fully automatic," open-source cartridge case comparison pipeline that compared cartridge case images using the CCF.
 
 \citet{song_proposed_2013} noted that two matching cartridge cases often share similar impressions in specific regions, so calculating the CCF between two full scans may not highlight their similarities.
