@@ -350,39 +350,16 @@ A critical step in comparing $A$ and $B$ is to find a transformation of $B$ such
 In image processing, this is called *image registration.* Noting that $A$ and $B$ are essentially grayscale images, we rely on a standard image registration technique \citep{Brown1992}.
 
 In our application, a registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
-Under this transformation, the index $i,j$ maps to a new index $i^*,j^*$ by: \begin{align*}
-\begin{pmatrix} j^* \\ i^* \end{pmatrix} =
-\begin{pmatrix} n \\ m \end{pmatrix} +
-\begin{pmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{pmatrix} \begin{pmatrix} j \\ i \end{pmatrix}.
-\end{align*}
-
-The value $b_{ij}$ now occupies the index $i^*, j^*$. 
-In practice, we use *nearest-neighbor interpolation* meaning $i^*$ and $j^*$ are rounded to the nearest integer.
-<!-- \footnote{Technical note: We pad the dimensions of matrix $B$ as-needed assuming free boundary conditions (0-padding) so as to not crop-out any of the original values [cite a boundary condition reference here]. For notational simplicity, we'll refer to this padded matrix as $B$ also.} -->
-
-To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$.
-Denoted $(A \star B)$, the CCF between $A$ and $B$ is a 2D array of dimension $2k - 1 \times 2k - 1$ with the $m,n$-th element given by:
-\begin{align*}
-(a \star b)_{mn} = \sum_{i=1}^k \sum_{j=1}^k a_{mn} \cdot b_{i + m, j + n}
-\end{align*} 
-where $1 \leq m,n \leq 2k - 1$.
-The value $(a \star b)_{mn}$ quantifies the similarity between $A$ and $B$ after $B$ is translated $m$ elements horizontally and $n$ elements vertically.
-The CCF is often normalized between -1 and 1 for interpretability.
-
-The above definition of the CCF is computationally taxing, particularly for large matrices.
-The Cross-Correlation Theorem provides an equivalent expression for the CCF:
-\begin{align*}
-(A \star B) = \mathcal{F}^{-1}\left(\overline{\mathcal{F}(A)} \odot \mathcal{F}(B)\right)
-\end{align*}
-where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse discrete Fourier transforms, respectively, $\overline{\mathcal{F}(A)}$ is the complex conjugate, and $\odot$ is an element-wise (Hadamard) product \citep{fft_brigham}.
-We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
-The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably [cite Tukey].
-
+To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$, denoted $(A \star B)$.
 We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
 Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
-Then the estimated registration $(m^*,n^*,\theta^*)$ is: \begin{align*}
+Then the estimated registration $(m^*,n^*,\theta^*)$ is: 
+
+\begin{align*}
 (m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (a \star b_\theta)_{mn}.
-\end{align*} In practice we consider a discrete grid of rotations $\pmb{\Theta} \subset [-180^\circ,180^\circ]$.
+\end{align*} 
+
+In practice we consider a discrete grid of rotations $\pmb{\Theta} \subset [-180^\circ,180^\circ]$.
 The registration procedure is outlined in \autoref{alg:registration}.
 We refer to the matrix that is rotated as the "target."
 The result is the estimated registration of the target matrix to the "source" matrix.
@@ -404,11 +381,8 @@ Calculate rotation $\theta^* = \arg \max_{\theta} \{CCF_{\max,\theta} : \theta \
 \end{algorithm}
 ```
 
-The Fast Fourier Transform algorithm used in \autoref{alg:registration} does not permit missing values in $A$ or $B$.
-It is common for cartridge case scans to contain many missing values - the gray regions in \autoref{fig:matchPair} represent structural values in the scan.
-Thus, when calculating the CCF we impute these missing values with the average non-missing value in the scan.
-To measure the similarity between $A$ and $B$ while accounting for missingness, we calculate the correlation between the non-missing intersection of the aligned scans.
-We compute the *pairwise-complete correlation* using only the complete value pairs, meaning neither value is missing, between $A$ and $B$.
+
+To accommodate missing values, we also compute the *pairwise-complete correlation* using only the complete value pairs, meaning neither value is missing, between $A$ and $B$.
 
 ### Registration-Based Features
 
@@ -432,18 +406,8 @@ We assume that the **full-scan pairwise-complete correlation** is large for trul
 
 #### Cell-Based Registration
 
-Following the full-scan registration, we next perform a cell-based registration procedure.
-\citet{song_proposed_2013} points out that breech face impressions rarely appear uniformly on a cartridge case surface.
-Rather, distinguishing markings appear in specific, usually small, regions of a scan (the author refers to these as *valid correlation regions*).
-Calculating a correlation between two whole scans does not necessarily capture the similarity between these regions.
-\citet{song_proposed_2013} proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
-\autoref{fig:cellGridExample} shows an example of two non-match cartridge cases where the source matrix (left) is partitioned into an $8 \times 8$ grid of cells.
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} Estimated registrations of cells from a non-match pair of cartridge cases. A source scan (left) is separated into an $8 \\times 8$ grid of cells. We exclude cells containing only missing values (visualized here as gray pixels). Each source cell is compared to a target scan (right) to estimate where it aligns best. We show a handful of cells at their estimated alignment in the target scan and magnify the surfaces captured by cell pairs 5, 1 and 7, 7. Although the cartridge case pair is non-matching, we note that there are similarities in the surface markings for these cell pairs."}
-knitr::include_graphics("images/cellGridExample_nonMatch.png")
-```
-
-The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix to be partitioned into a grid of cells.
+We next perform a cell-based registration procedure.
+The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix that is partitioned into a grid of cells.
 Each of these source cells will be compared to the "target" matrix, in this case $B^*$.
 Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each source cell to $B^*$ using a new rotation grid of $\pmb{\Theta}'_A = \{\theta^*_A - 2^\circ, \theta^*_A - 1^\circ,\theta^*_A,\theta^*_A + 1^\circ,\theta^*_A + 2^\circ\}$.
 
@@ -473,63 +437,12 @@ Calculate translation $[m^*_{A,t,\theta},n^*_{A,t,\theta}] = \arg \max_{m,n} (a_
 
 Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_A$ of translations and CCF values for each cell and each rotation considered.
 
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} Estimated registrations of cells from a non-match pair of cartridge cases. A source scan (left) is separated into an $8 \\times 8$ grid of cells. We exclude cells containing only missing values (visualized here as gray pixels). Each source cell is compared to a target scan (right) to estimate where it aligns best. We show a handful of cells at their estimated alignment in the target scan and magnify the surfaces captured by cell pairs 5, 1 and 7, 7. Although the cartridge case pair is non-matching, we note that there are similarities in the surface markings for these cell pairs."}
+knitr::include_graphics("images/cellGridExample_nonMatch.png")
+```
+
 \autoref{fig:cellGridExample} shows the estimated registrations of cells between two non-match cartridge cases.
 We magnify the surface values captured by cell pairs 5, 1 and 7, 7 and note the similarities in the surface values; for example, the dark purple region in the middle of the cell 7, 7 pair.
-\jz{[More discussion on alignment in the figure. Point out that it is important to consider features that measure the similarities and differences, since we're likely to find some similarities between non-matching scans]}
-
-If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.
-This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
-The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[m,n] \approx [17,-16]$.
-This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
-The task is to determine when cells reach a registration consensus.
-
-```{r,eval=TRUE,include=FALSE}
-if (!file.exists("data/compData.RData")) {
-  compData <- 
-    dplyr::bind_rows(map_dfr(seq(-30,30,by = 3),
-                             ~ cmcR::comparison_allTogether(reference = reference_eroded,
-                                                            target = target_eroded,
-                                                            theta = .,
-                                                            numCells = c(8,8),
-                                                            maxMissingProp = .99,
-                                                            returnX3Ps = TRUE)) %>%
-                       mutate(direction = "comparison_refToTarget"),
-                     map_dfr(seq(-30,30,by = 3),
-                             ~ cmcR::comparison_allTogether(reference = target_eroded,
-                                                            target = reference_eroded,
-                                                            theta = .,
-                                                            numCells = c(8,8),
-                                                            maxMissingProp = .99,
-                                                            returnX3Ps = TRUE)) %>%
-                       mutate(direction = "comparison_targetToRef"))
-  
-  save(compData,file = "data/compData.RData")
-}
-```
-
-```{r, include=FALSE}
-load("data/compData.RData")
-plt <- compData %>%
-  select(-c(cellHeightValues,alignedTargetCell)) %>%
-  filter(direction == "comparison_refToTarget") %>%
-  filter(theta >= -3 & theta <= 9) %>%
-  ggplot(aes(x=x,y,y)) +
-  geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
-  geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
-  # geom_point() +
-  geom_jitter(width = 3,height = 3, alpha=.8) +
-  coord_fixed(expand = TRUE) +
-  facet_wrap(~ theta,nrow = 1,labeller = label_both) +
-  theme_bw() +
-  labs(x = "horizontal shift n", y = "vertical shift m") +
-  theme(axis.text = element_text(size = 6)) 
-ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, height = 3)
-knitr::plot_crop("figures/estimatedTranslationFaceted.png")
-```
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[m, n] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
-knitr::include_graphics("figures/estimatedTranslationFaceted.png")
-```
 
 Just as with the whole-scan registration, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_{A,\theta},n^*_{A,\theta}]$.
 From this we obtain a set of pairwise-complete correlations for each cell and rotation: $\{cor_{A,t,\theta} : t = 1,...,T_A, \theta \in \pmb{\Theta}'_A\}$.
@@ -573,16 +486,6 @@ where
 \end{align*}
 We expect the $s_{\theta^*}, s_{m^*},s_{n^*}$ to be small for truly matching cartridge case pairs.
 
-\autoref{fig:registrationDensities} shows density plots of the registration-based features for 21,945 cartridge case pairs.
-The first two rows show densities for the sample mean and standard deviation of the cell-based registrations, respectively.
-The third row shows densities for the pairwise-complete correlation features.
-The standard deviation of the cell-based registrations discriminate more between match vs. non-match pairs than the sample means, which justifies their exclusion from the final feature set.
-\jz{[More to say here?]}
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:registrationDensities} Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
-knitr::include_graphics("images/registrationFeatureDensities.png")
-```
-
 From the full-scan and cell-based registration procedures, we obtain six features summarized in \autoref{tab:registrationFeatures}.
 
 ```{=tex}
@@ -621,25 +524,9 @@ $s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations} \\
 As discussed in the last section, we wish to identify when multiple cells agree on a particular registration.
 \citet{zhang_convergence_2021} proposed using the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm to identify clusters of points based on their density.
 
-<!-- \autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)} -->
-DBSCAN has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
-<!-- In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point. -->
-First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} 
-These points form the beginning of a cluster.
-All points within an $\epsilon$-neighborhood of a core point are included in the associated cluster.
-Clusters whose core points are within each other's $\epsilon$-neighborhood are combined into a single cluster.
-Any point outside of the $\epsilon$-neighborhood of a core point are called "noise points."
-Unlike other clustering algorithms, the DBSCAN algorithm does not require a specified number of expected clusters as a parameter; any points not belonging to a cluster are "noise." 
-<!-- and are shown in red in \autoref{fig:dbscanIllustration}. -->
-<!-- The yellow points $B$ and $C$ are within the $\epsilon$-neighborhood of a core point, but are not themselves core points. -->
-<!-- They are also included in the cluster making the overall cluster size 8. -->
-<!-- Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neighborhood and is thus classified as a "noise point." -->
-
-\jz{[Add image to illustrate DBSCAN?]}
-
-<!-- ```{r,out.width=".7\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:dbscanIllustration} Illustration of the DBSCAN algorithm [cite]. Red and yellow points are part of the same cluster with the former forming the "core" of the cluster. The blue point is not part of a cluster and is classified as a "noise point." Figure by Chire - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=17045963'} -->
-<!-- knitr::include_graphics("images/dbscanIllustration.png") -->
-<!-- ``` -->
+```{r,include=FALSE}
+load("data/compData.RData")
+```
 
 
 ```{r,cache=FALSE,include=FALSE}
@@ -768,17 +655,6 @@ C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
 We use both $C$ and $C_0$ because of potential missingness in the values of $C$ if no cluster is identified.
 Missing $C$ values are imputed using the median non-missing value when fitting classifiers, so the missingness information is retained in $C_0$.
 
-\autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
-The stacked bar chart in the top-left shows the proportion of comparisons where no DBSCAN cluster is identified by outcome (match or non-match).
-We see that the vast majority of comparisons for which no DBSCAN cluster is identified are non-match comparisons. indicating that $C_0$ is a good indicator of ground-truth.
-In fact, there is only one non-match comparison that resulted in a DBSCAN cluster.
-It's difficult to see in the plots, but the $C$ value for this non-match pair is 5 and the $\Delta_{\text{trans}}$ value is 23.9.
-As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:densityDistributions} Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left. This explains the near absence of non-matching comparisons from Cluster Size and Estimated Translation Difference plots. Whether a cluster is identified for a particular comparison strongly predicts whether it is a match or a non-match, which justifies the inclusion of the cluster indicator feature $C_0$.'}
-knitr::include_graphics("images/densityFeatureDistributions.png")
-```
-
 
 For truly matching cartridge case pairs, we expect the $C$ to be large, $C_0$ to be 1, and $\Delta_\theta, \Delta_{\text{trans}}$ to be small. We obtain four density-based features summarized in \autoref{tab:dbscanFeatures}.
 
@@ -822,86 +698,6 @@ Of particular interest in our application is the (absolute) difference between s
 For example, $\mathcal{F}_{|A - B| > \tau}(A)$ contains elements of matrix $A$ where the pair of scans $A$ and $B$ deviate by at least $\tau \in \mathbb{R}$.
 Surface values in $A$ and $B^*$ that are "close," meaning within $\tau$ distance, to each other are replaced with $NA$ in this filtered matrix.
 
-The Complementary Comparison Plot visualizes the similarities and differences between two scans.
-\autoref{fig:fullScan_comparisonPlot} shows a Complementary Comparison plot between scan $A$ and $B^*$ defined previously.
-The left column shows Scans $A$ and $B^*$.
-The middle column shows a filtered element-wise average between $A$ and $B^*$; namely $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$.
-This filtered element-wise average emphasizes similarities between $A$ and $B^*$.
-The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
-These plots emphasize the differences between the two scans.
-The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
-We repeat this in the other comparison direction $(d = B)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| < \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
-
-```{r,cache=TRUE,include=FALSE}
-if(!file.exists("data/compData_fullScans.RData")){
-  compData_fullScans <- 
-    bind_rows(map_dfr(seq(-30,30,by = 3),
-                      ~ cmcR::comparison_allTogether(reference = reference_eroded,
-                                                     target = target_eroded,
-                                                     theta = .,
-                                                     numCells = c(1,1),
-                                                     maxMissingProp = .99,
-                                                     sideLengthMultiplier = 1.1,
-                                                     returnX3Ps = TRUE)) %>%
-                mutate(direction = "comparison_refToTarget") %>%
-                filter(pairwiseCompCor == max(pairwiseCompCor)),
-              map_dfr(seq(-30,30,by = 3),
-                      ~ cmcR::comparison_allTogether(reference = target_eroded,
-                                                     target = reference_eroded,
-                                                     theta = .,
-                                                     numCells = c(1,1),
-                                                     maxMissingProp = .99,
-                                                     sideLengthMultiplier = 1.1,
-                                                     returnX3Ps = TRUE)) %>%
-                mutate(direction = "comparison_targetToRef") %>%
-                filter(pairwiseCompCor == max(pairwiseCompCor)))
-  
-  save(compData_fullScans,file = "data/compData_fullScans.RData")
-}
-```
-
-```{r,cache=FALSE,include=FALSE}
-load("data/compData_fullScans.RData")
-
-scanA <- compData_fullScans %>%
-  filter(direction == "comparison_refToTarget") %>%
-  pull(cellHeightValues) %>%
-  .[[1]]
-
-scanBStar <- compData_fullScans %>%
-  filter(direction == "comparison_refToTarget") %>%
-  pull(alignedTargetCell) %>%
-  .[[1]]
-
-scanA$surface.matrix <- (scanA$surface.matrix*scanA$cmcR.info$scaleByVal + scanA$cmcR.info$centerByVal)
-
-scanBStar$surface.matrix <- (scanBStar$surface.matrix*scanBStar$cmcR.info$scaleByVal + scanBStar$cmcR.info$centerByVal)
-
-compPlt <- impressions::x3p_comparisonPlot(
-  x3p1 = scanA,
-  x3p2 = scanBStar,
-  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
-                 "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
-  labelSize = 2.5,
-  legendLength = grid::unit(4,"in"),
-  legendHoriz = -1.3,
-  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
-```
-
-```{r,include=FALSE}
-ggsave(plot = compPlt,filename = "figures/fullScan_comparisonPlot.png",dpi = 500)
-knitr::plot_crop("figures/fullScan_comparisonPlot.png")
-```
-
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:fullScan_comparisonPlot} Full scan comparison plot."}
-knitr::include_graphics("figures/fullScan_comparisonPlot.png")
-```
-
-We make a series of qualitative assumptions related to how a Complementary Comparison Plot will look for matching and non-matching cartridge case pairs.
-We develop a set of features that measure the degree to which these assumptions are met by a particular cartridge case pair.
-We now describe each feature and their associated assumptions.
-
 We first consider the correlation $cor_{d,\text{full},\text{filt}}$ between the filtered matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ when $d = A$ and $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$ when $d = B$.
 The average of these is used as a feature:
 \begin{align*}
@@ -929,6 +725,32 @@ More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{d,1},S_{d,
 The right side of \autoref{fig:filterLabeling} shows each $S_{d,l}$ distinguished by different fill colors, $l = 1,...,L_d$.
 
 ```{r,include=FALSE,cache = FALSE}
+load("data/compData_fullScans.RData")
+
+scanA <- compData_fullScans %>%
+  filter(direction == "comparison_refToTarget") %>%
+  pull(cellHeightValues) %>%
+  .[[1]]
+
+scanBStar <- compData_fullScans %>%
+  filter(direction == "comparison_refToTarget") %>%
+  pull(alignedTargetCell) %>%
+  .[[1]]
+
+scanA$surface.matrix <- (scanA$surface.matrix*scanA$cmcR.info$scaleByVal + scanA$cmcR.info$centerByVal)
+
+scanBStar$surface.matrix <- (scanBStar$surface.matrix*scanBStar$cmcR.info$scaleByVal + scanBStar$cmcR.info$centerByVal)
+
+compPlt <- impressions::x3p_comparisonPlot(
+  x3p1 = scanA,
+  x3p2 = scanBStar,
+  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
+                 "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
+  labelSize = 2.5,
+  legendLength = grid::unit(4,"in"),
+  legendHoriz = -1.3,
+  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
+
 plt1 <- ggplot_build(compPlt$patches$plots[[3]])
 
 plt1 <- plt1$data[[2]] %>%
@@ -1014,15 +836,6 @@ Again, we assume that the \textbf{average cell-wise neighborhood size} and the \
 
 <!-- s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\ -->
 <!-- s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2. -->
-
-\autoref{fig:visualDiagnosticDensities} shows the distribution of the six visual diagnostic-based features.
-As expected, matching comparisons at the full-scan and cell-based levels tend to have smaller neighborhood sizes and higher correlation values on average.
-
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:visualDiagnosticDensities} Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
-knitr::include_graphics("images/visualDiagnosticDensities.png")
-```
-
 
 \autoref{tab:visualDiagnosticFeatures} summarizes the six features calculated based on the visual diagnostics.
 
@@ -1516,6 +1329,245 @@ Furthermore, information such as relative contributions of the authors may be ad
 ```
 
 # Appendix {.unnumbered}
+
+## Registration Procedure Details
+
+In our application, a registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
+Under this transformation, the index $i,j$ maps to a new index $i^*,j^*$ by: \begin{align*}
+\begin{pmatrix} j^* \\ i^* \end{pmatrix} =
+\begin{pmatrix} n \\ m \end{pmatrix} +
+\begin{pmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{pmatrix} \begin{pmatrix} j \\ i \end{pmatrix}.
+\end{align*}
+
+The value $b_{ij}$ now occupies the index $i^*, j^*$. 
+In practice, we use *nearest-neighbor interpolation* meaning $i^*$ and $j^*$ are rounded to the nearest integer.
+<!-- \footnote{Technical note: We pad the dimensions of matrix $B$ as-needed assuming free boundary conditions (0-padding) so as to not crop-out any of the original values [cite a boundary condition reference here]. For notational simplicity, we'll refer to this padded matrix as $B$ also.} -->
+
+To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$.
+Denoted $(A \star B)$, the CCF between $A$ and $B$ is a 2D array of dimension $2k - 1 \times 2k - 1$ with the $m,n$-th element given by:
+\begin{align*}
+(a \star b)_{mn} = \sum_{i=1}^k \sum_{j=1}^k a_{mn} \cdot b_{i + m, j + n}
+\end{align*} 
+where $1 \leq m,n \leq 2k - 1$.
+The value $(a \star b)_{mn}$ quantifies the similarity between $A$ and $B$ after $B$ is translated $m$ elements horizontally and $n$ elements vertically.
+The CCF is often normalized between -1 and 1 for interpretability.
+
+The above definition of the CCF is computationally taxing, particularly for large matrices.
+The Cross-Correlation Theorem provides an equivalent expression for the CCF:
+\begin{align*}
+(A \star B) = \mathcal{F}^{-1}\left(\overline{\mathcal{F}(A)} \odot \mathcal{F}(B)\right)
+\end{align*}
+where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse discrete Fourier transforms, respectively, $\overline{\mathcal{F}(A)}$ is the complex conjugate, and $\odot$ is an element-wise (Hadamard) product \citep{fft_brigham}.
+We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
+The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably [cite Tukey].
+
+We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
+Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
+Then the estimated registration $(m^*,n^*,\theta^*)$ is: 
+
+\begin{align*}
+(m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (a \star b_\theta)_{mn}.
+\end{align*} 
+
+In practice we consider a discrete grid of rotations $\pmb{\Theta} \subset [-180^\circ,180^\circ]$.
+The registration procedure is outlined in \autoref{alg:registration}.
+We refer to the matrix that is rotated as the "target."
+The result is the estimated registration of the target matrix to the "source" matrix.
+
+The Fast Fourier Transform algorithm used in \autoref{alg:registration} does not permit missing values in $A$ or $B$.
+It is common for cartridge case scans to contain many missing values - the gray regions in \autoref{fig:matchPair} represent structural values in the scan.
+Thus, when calculating the CCF we impute these missing values with the average non-missing value in the scan.
+To measure the similarity between $A$ and $B$ while accounting for missingness, we calculate the correlation between the non-missing intersection of the aligned scans.
+
+### Cell-Based Registration Details
+
+Following the full-scan registration, we next perform a cell-based registration procedure.
+\citet{song_proposed_2013} points out that breech face impressions rarely appear uniformly on a cartridge case surface.
+Rather, distinguishing markings appear in specific, usually small, regions of a scan (the author refers to these as *valid correlation regions*).
+Calculating a correlation between two whole scans does not necessarily capture the similarity between these regions.
+\citet{song_proposed_2013} proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
+\autoref{fig:cellGridExample} shows an example of two non-match cartridge cases where the source matrix (left) is partitioned into an $8 \times 8$ grid of cells.
+
+The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix to be partitioned into a grid of cells.
+Each of these source cells will be compared to the "target" matrix, in this case $B^*$.
+Because $A$ and $B^*$ are already partially aligned based on the course rotation grid $\pmb{\Theta}$, we compare each source cell to $B^*$ using a new rotation grid of $\pmb{\Theta}'_A = \{\theta^*_A - 2^\circ, \theta^*_A - 1^\circ,\theta^*_A,\theta^*_A + 1^\circ,\theta^*_A + 2^\circ\}$.
+
+If two cartridge cases are truly matching, then we assume that multiple cells will "agree" on a particular translation value at the true rotation.
+This agreement phenomenon is illustrated in \autoref{fig:estimatedTranslationFaceted} where each point represents the translation that maximizes the CCF for a particular cell and rotation.
+The points appear randomly distributed for most of the rotation values except around $\theta = 3$ where a tight cluster of points forms around translation $[m,n] \approx [17,-16]$.
+This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
+The task is to determine when cells reach a registration consensus.
+
+```{r,eval=TRUE,include=FALSE}
+if (!file.exists("data/compData.RData")) {
+  compData <- 
+    dplyr::bind_rows(map_dfr(seq(-30,30,by = 3),
+                             ~ cmcR::comparison_allTogether(reference = reference_eroded,
+                                                            target = target_eroded,
+                                                            theta = .,
+                                                            numCells = c(8,8),
+                                                            maxMissingProp = .99,
+                                                            returnX3Ps = TRUE)) %>%
+                       mutate(direction = "comparison_refToTarget"),
+                     map_dfr(seq(-30,30,by = 3),
+                             ~ cmcR::comparison_allTogether(reference = target_eroded,
+                                                            target = reference_eroded,
+                                                            theta = .,
+                                                            numCells = c(8,8),
+                                                            maxMissingProp = .99,
+                                                            returnX3Ps = TRUE)) %>%
+                       mutate(direction = "comparison_targetToRef"))
+  
+  save(compData,file = "data/compData.RData")
+}
+```
+
+```{r, include=FALSE}
+load("data/compData.RData")
+plt <- compData %>%
+  select(-c(cellHeightValues,alignedTargetCell)) %>%
+  filter(direction == "comparison_refToTarget") %>%
+  filter(theta >= -3 & theta <= 9) %>%
+  ggplot(aes(x=x,y,y)) +
+  geom_vline(xintercept = 0,linetype = "dashed", colour = "grey50") +
+  geom_hline(yintercept = 0,linetype = "dashed", colour = "grey50") +
+  # geom_point() +
+  geom_jitter(width = 3,height = 3, alpha=.8) +
+  coord_fixed(expand = TRUE) +
+  facet_wrap(~ theta,nrow = 1,labeller = label_both) +
+  theme_bw() +
+  labs(x = "horizontal shift n", y = "vertical shift m") +
+  theme(axis.text = element_text(size = 6)) 
+ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, height = 3)
+knitr::plot_crop("figures/estimatedTranslationFaceted.png")
+```
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[m, n] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
+knitr::include_graphics("figures/estimatedTranslationFaceted.png")
+```
+
+### Registration-Based Feature Distributions
+
+\autoref{fig:registrationDensities} shows density plots of the registration-based features for 21,945 cartridge case pairs.
+The first two rows show densities for the sample mean and standard deviation of the cell-based registrations, respectively.
+The third row shows densities for the pairwise-complete correlation features.
+The standard deviation of the cell-based registrations discriminate more between match vs. non-match pairs than the sample means, which justifies their inclusion in the final feature set.
+\jz{[More to say here?]}
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:registrationDensities} Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
+knitr::include_graphics("images/registrationFeatureDensities.png")
+```
+
+## DBSCAN Algorithm Details
+
+<!-- \autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)} -->
+DBSCAN has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
+<!-- In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point. -->
+First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} 
+These points form the beginning of a cluster.
+All points within an $\epsilon$-neighborhood of a core point are included in the associated cluster.
+Clusters whose core points are within each other's $\epsilon$-neighborhood are combined into a single cluster.
+Any point outside of the $\epsilon$-neighborhood of a core point are called "noise points."
+Unlike other clustering algorithms, the DBSCAN algorithm does not require a specified number of expected clusters as a parameter; any points not belonging to a cluster are "noise." 
+<!-- and are shown in red in \autoref{fig:dbscanIllustration}. -->
+<!-- The yellow points $B$ and $C$ are within the $\epsilon$-neighborhood of a core point, but are not themselves core points. -->
+<!-- They are also included in the cluster making the overall cluster size 8. -->
+<!-- Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neighborhood and is thus classified as a "noise point." -->
+
+\jz{[Add image to illustrate DBSCAN?]}
+
+<!-- ```{r,out.width=".7\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:dbscanIllustration} Illustration of the DBSCAN algorithm [cite]. Red and yellow points are part of the same cluster with the former forming the "core" of the cluster. The blue point is not part of a cluster and is classified as a "noise point." Figure by Chire - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=17045963'} -->
+<!-- knitr::include_graphics("images/dbscanIllustration.png") -->
+<!-- ``` -->
+
+### Density-Based Feature Distributions
+
+\autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
+The stacked bar chart in the top-left shows the proportion of comparisons where no DBSCAN cluster is identified by outcome (match or non-match).
+We see that the vast majority of comparisons for which no DBSCAN cluster is identified are non-match comparisons. indicating that $C_0$ is a good indicator of ground-truth.
+In fact, there is only one non-match comparison that resulted in a DBSCAN cluster.
+It's difficult to see in the plots, but the $C$ value for this non-match pair is 5 and the $\Delta_{\text{trans}}$ value is 23.9.
+As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:densityDistributions} Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left. This explains the near absence of non-matching comparisons from Cluster Size and Estimated Translation Difference plots. Whether a cluster is identified for a particular comparison strongly predicts whether it is a match or a non-match, which justifies the inclusion of the cluster indicator feature $C_0$.'}
+knitr::include_graphics("images/densityFeatureDistributions.png")
+```
+
+## Visual Diagnostic Details
+
+The Complementary Comparison Plot visualizes the similarities and differences between two scans.
+\autoref{fig:fullScan_comparisonPlot} shows a Complementary Comparison plot between scan $A$ and $B^*$ defined previously.
+The left column shows Scans $A$ and $B^*$.
+The middle column shows a filtered element-wise average between $A$ and $B^*$; namely $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$.
+This filtered element-wise average emphasizes similarities between $A$ and $B^*$.
+The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
+These plots emphasize the differences between the two scans.
+The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
+We repeat this in the other comparison direction $(d = B)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| < \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
+
+```{r,cache=TRUE,include=FALSE}
+if(!file.exists("data/compData_fullScans.RData")){
+  compData_fullScans <- 
+    bind_rows(map_dfr(seq(-30,30,by = 3),
+                      ~ cmcR::comparison_allTogether(reference = reference_eroded,
+                                                     target = target_eroded,
+                                                     theta = .,
+                                                     numCells = c(1,1),
+                                                     maxMissingProp = .99,
+                                                     sideLengthMultiplier = 1.1,
+                                                     returnX3Ps = TRUE)) %>%
+                mutate(direction = "comparison_refToTarget") %>%
+                filter(pairwiseCompCor == max(pairwiseCompCor)),
+              map_dfr(seq(-30,30,by = 3),
+                      ~ cmcR::comparison_allTogether(reference = target_eroded,
+                                                     target = reference_eroded,
+                                                     theta = .,
+                                                     numCells = c(1,1),
+                                                     maxMissingProp = .99,
+                                                     sideLengthMultiplier = 1.1,
+                                                     returnX3Ps = TRUE)) %>%
+                mutate(direction = "comparison_targetToRef") %>%
+                filter(pairwiseCompCor == max(pairwiseCompCor)))
+  
+  save(compData_fullScans,file = "data/compData_fullScans.RData")
+}
+```
+
+```{r,cache=FALSE,include=FALSE}
+compPlt <- impressions::x3p_comparisonPlot(
+  x3p1 = scanA,
+  x3p2 = scanBStar,
+  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
+                 "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
+  labelSize = 2.5,
+  legendLength = grid::unit(4,"in"),
+  legendHoriz = -1.3,
+  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
+```
+
+```{r,include=FALSE}
+ggsave(plot = compPlt,filename = "figures/fullScan_comparisonPlot.png",dpi = 500)
+knitr::plot_crop("figures/fullScan_comparisonPlot.png")
+```
+
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:fullScan_comparisonPlot} Full scan comparison plot."}
+knitr::include_graphics("figures/fullScan_comparisonPlot.png")
+```
+
+We make a series of qualitative assumptions related to how a Complementary Comparison Plot will look for matching and non-matching cartridge case pairs.
+We develop a set of features that measure the degree to which these assumptions are met by a particular cartridge case pair.
+<!-- We now describe each feature and their associated assumptions. -->
+
+### Visual Diagnostic Feature Distributions
+
+\autoref{fig:visualDiagnosticDensities} shows the distribution of the six visual diagnostic-based features.
+As expected, matching comparisons at the full-scan and cell-based levels tend to have smaller neighborhood sizes and higher correlation values on average.
+
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:visualDiagnosticDensities} Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
+knitr::include_graphics("images/visualDiagnosticDensities.png")
+```
 
 ## Model-Specific Results
 
