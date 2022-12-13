@@ -1146,6 +1146,23 @@ knitr::include_graphics("figures/testAccuracy.png")
 
 # Discussion
 
+```{=tex}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{|p{.11\linewidth}|p{.25\linewidth}|p{.25\linewidth}|p{.25\linewidth}|}
+\hline
+\textbf{Original Paper} & \textbf{Similarities to ACES} & \textbf{Original Use} & \textbf{ACES Use} \\
+\hline
+\citet{song_proposed_2013} & Use the cell-based comparison procedure outline in \autoref{alg:cellComparison} to compute estimated registrations & Call cells Congruent Matching Cells if their registrations are close to a reference value. Classify a cartridge case pair as a match if the CMC count is at least 6. & Compute six summative features based on full-scan and cell registrations. Use features in a classifier model. \\
+\hline
+\citet{zhang_convergence_2021} & Use DBSCAN algorithm to identify cells that reach a consensus registration & Classify a cartridge case pair as a match if a DBSCAN cluster is identified. & Compute four numerical features based on DBSCAN clusters across both comparison directions. Use features in a classifier model. \\
+\hline
+\end{tabular}
+\caption{Comparison of the ACES algorithm to previous work. Although ACES shares similarities to previously-proposed algorithms, it includes additional nuance by computing features across both comparison directions and using these features in a classifier model.}
+\label{tab:previousWorkComparison}
+\end{table}
+```
+
 The cell-based registration features used in the ACES algorithm are functionally the same as the features used in the Congruent Matching Cells algorithm proposed by \citet{song_proposed_2013}.
 However, we augment these features with features from the density-based registration procedure, which tends to be more robust to parameter choice and noisiness than the CMC method.
 In the CMC method, cell registrations are compared to some reference value, typically the median registration across cells.
@@ -1155,6 +1172,25 @@ As discussed in [Zemmels et al. (2022)], the CMC method is rather sensitive to c
 In contrast, the density-based registration procedure compares cell registrations to each other rather than to an arbitrary reference value.
 An estimated registration is simply a byproduct of the clustering algorithm (e.g., the cluster medioids).
 Further, there are only two parameters in the DBSCAN algorithm to be selected, the neighborhood radius $\epsilon$ and minimum neighborhood size $Minpts$, which simplifies optimization.
+
+```{=tex}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Classification Method} & \textbf{Accuracy} & \textbf{True Negative} & \textbf{True Positive} \\
+\hline
+CMC method & \% & \% & \% \\
+\hline
+Only $C_0$ feature & 97.9\% & 99.98\%\% & 70.3\% \\
+\hline
+ACES Random Forest & 98.8\% & 99.7\% & 87.2\% \\
+\hline
+\end{tabular}
+\caption{Accuracy, True Negative, and True Positive rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
+\label{tab:classifMethodComparison}
+\end{table}
+```
 
 It should be noted that the original implementation of the CMC method is not openly available at the time of writing.
 Instead, we compare the ACES algorithm to an implementation of the CMC method available in the cmcR package \citep{cmcR}.
