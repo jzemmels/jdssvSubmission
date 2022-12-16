@@ -85,7 +85,10 @@ library(x3ptools)
 library(tidyverse)
 library(patchwork)
 ```
+\hh{Generally for tables, no vertical lines.}
 
+\hh{I think we need an overview picture to set the stage for an audience who is large unfamiliar with anything firearms related. How about you move up figure 1 and include (a) cartridge cases with an arrow pointing to the primer. (b) an image of the confocal light microscope taking an image of a cartridge case (c) a comparison microscope image (d) the marked up image (maybe even from the side).
+I'm thinking of something along the lines of Xiao Hui's paper: https://www.semanticscholar.org/paper/Automatically-matching-topographical-measurements-a-Tai-Eddy/6532cc25b9104d42844418254641acdab01fadf8/figure/0}
 # Introduction
 
 A \emph{cartridge case} is part of firearm ammunition that houses the projectile and propulsive device.
@@ -190,7 +193,7 @@ When initialized, every element of a mask is a shade of brown (#cd7f32) by defau
 Any elements painted over by the user will be replaced with the user's selected color value.
 In \autoref{fig:annotatedScan}, the breech face impression region was manually annotated using a shade of red (#ff0000).
 
-```{r,out.width=".6\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:annotatedScan} A cartridge case surface is manually annotated in red using the FiX3P software. The annotated region of interest contains breech face impressions."}
+```{r,out.width=".6\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:annotatedScan}  A cartridge case surface is manually annotated in red using the FiX3P software. The annotated region of interest contains breech face impressions."}
 knitr::include_graphics("images/annotatedReference.png")
 ```
 
