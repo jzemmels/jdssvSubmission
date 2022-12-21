@@ -98,6 +98,7 @@ Markings on the breech face are "stamped" into the surface of the cartridge case
 Forensic examiners use these impressions analogous to a fingerprint to determine whether two cartridge cases were fired from the same firearm.
 Typically, the examination involves the use of a microscope to assess the "agreement" between the markings on two cartridge cases.
 Depending on the outcome of this comparison, the forensic examiner decides if the cartridge cases share or do not share a common source or if there is "inconclusive" evidence to decide \citep{AFTE1992}.
+The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure.
 
 <!-- Forensic examinations measure the probative value of a piece of evidence. -->
 <!-- Typically, a forensic examiner visually inspects the evidence to determine its source. -->
@@ -184,18 +185,18 @@ We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES
 The following sections detail each of these stages.
 Throughout, we treat "surface matrix" and "scan" synonymously.
 
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:examination-algorithm-comparison} Comparison of the traditional examination vs. the currently proposed method for comparing cartridge cases. Both start with two fired cartridge cases. In traditional examination, an examiner uses a microscope to assess the "agreement" of markings on the two cartridge case surfaces. They decide whether or not the cartridge cases were fired from the same firearm, or if there is inconclusive evidence to decide. In the ACES algorithm, we take a topographical scan of the cartridge case surfaces and manually identify the regions containing distinguishable markings (shown in red). We pass these scans to the ACES algorithm, which processes and compares the two scans. The final result is a numerical measure of similarity of the two cartridge cases.'}
+knitr::include_graphics("images/Cartridge on Sensofar Scope/examination_vs_algorithm_comparison.png")
+```
+
 ## Preprocessing
 
 We first use the open-source FiX3P web application \hh{cite Talen Fisher} to manually annotate the breech face impression region.
-An example of a manually-annotated cartridge case scan is shown in \autoref{fig:annotatedScan}.
+An example of a manually-annotated cartridge case scan is shown in \autoref{fig:examination-algorithm-comparison}.
 The FiX3P software includes functionality to "paint" the surface of a cartridge case using a computer cursor and save the painted regions to a *mask.* A mask is a 2D array of hexidecimal color values of the same dimension as its associated surface matrix.
 When initialized, every element of a mask is a shade of brown (#cd7f32) by default.
 Any elements painted over by the user will be replaced with the user's selected color value.
-In \autoref{fig:annotatedScan}, the breech face impression region was manually annotated using a shade of red (#ff0000).
-
-```{r,out.width=".6\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:annotatedScan}  A cartridge case surface is manually annotated in red using the FiX3P software. The annotated region of interest contains breech face impressions."}
-knitr::include_graphics("images/annotatedReference.png")
-```
+In \autoref{fig:examination-algorithm-comparison}, the breech face impression region was manually annotated using a shade of red (#ff0000).
 
 Once read into an R environment, we apply a sequence of functions available in the R packages x3ptools \citep{x3ptools} and cmcR \citep{cmcR} to preprocess the raw scans.
 <!-- [Code] demonstrates how the [magrittr] pipe (`%>%`) operator strings together these functions. --> \autoref{fig:preProcessEffect} shows the effect that each function has on the scan surface values.
