@@ -98,7 +98,7 @@ Markings on the breech face are "stamped" into the surface of the cartridge case
 Forensic examiners use these impressions analogous to a fingerprint to determine whether two cartridge cases were fired from the same firearm.
 Typically, the examination involves the use of a microscope to assess the "agreement" between the markings on two cartridge cases.
 Depending on the outcome of this comparison, the forensic examiner decides if the cartridge cases share or do not share a common source or if there is "inconclusive" evidence to decide \citep{AFTE1992}.
-The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure \citep{Vorburger2015,xiaoHui_seminar2018}.
+The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure \citep{Vorburger2015,xiaoHui_seminar}.
 
 <!-- Forensic examinations measure the probative value of a piece of evidence. -->
 <!-- Typically, a forensic examiner visually inspects the evidence to determine its source. -->
