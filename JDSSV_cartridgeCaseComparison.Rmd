@@ -128,7 +128,7 @@ We discuss the strengths and weaknesses of the three classifier models and compa
 We also argue that the ACES algorithm combines the classification rules of previously proposed cartridge case comparison algorithms while incorporating additional nuance.
 We conclude with our thoughts on how cartridge case comparison algorithms should be developed, validated, and shared going forward.
 
-# Previous Work
+## Previous Work
 
 \citet{vorburger_surface_2007} proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
 The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
@@ -494,27 +494,18 @@ where
 \end{align*}
 We expect the $s_{\theta^*}, s_{m^*},s_{n^*}$ to be small for truly matching cartridge case pairs.
 
-From the full-scan and cell-based registration procedures, we obtain six features summarized in \autoref{tab:registrationFeatures}.
+From the full-scan and cell-based registration procedures, we obtain six features summarized in \ref{tab:registrationFeatures}.
 
 ```{=tex}
 \begin{table}[htbp]
 \centering
-\begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
-\hline
-Notation & Feature Description \\
-\hline
+\begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
 $cor_{\text{full}}$ & \textbf{Full-scan pairwise-complete correlation} after aligning the scans. \\
-\hline
 $\overline{cor}_{\text{cell}}$ & \textbf{Average cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
-\hline
 $s_{cor}$ & \textbf{Standard deviation of the cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
-\hline
 $s_{m^*}$ & \textbf{Standard deviation of the cell-based vertical translations} \\
-\hline
 $s_{n^*}$ & \textbf{Standard deviation of the cell-based horizontal translations} \\
-\hline
-$s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations} \\
-\hline
+$s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations}
 \end{tabular}
 \caption{Six similarity features based on registering full scans or cells.}
 \label{tab:registrationFeatures}
@@ -669,18 +660,11 @@ For truly matching cartridge case pairs, we expect the $C$ to be large, $C_0$ to
 ```{=tex}
 \begin{table}[htbp]
 \centering
-\begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
-\hline
-Notation & Feature Description \\
-\hline
+\begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
 $C$ & \textbf{Average DBSCAN cluster size} across both comparison directions \\
-\hline
 $C_0$ & \textbf{DBSCAN cluster indicator} of whether DBSCAN clusters exist in both comparison directions \\
-\hline
 $\Delta_\theta$ & \textbf{Absolute sum of the density-estimated rotations} between both comparison directions  \\
-\hline
-$\Delta_{\text{trans}}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions \\
-\hline
+$\Delta_{\text{trans}}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions
 \end{tabular}
 \caption{Four similarity features based on the density-based clustering procedure.}
 \label{tab:dbscanFeatures}
@@ -850,22 +834,13 @@ Again, we assume that the \textbf{average cell-wise neighborhood size} and the \
 ```{=tex}
 \begin{table}[htbp]
 \centering
-\begin{tabular}{|p{.11\linewidth}|p{.7\linewidth}|}
-\hline
-Notation & Feature Description \\
-\hline
+\begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
 $\overline{cor}_{\text{full},\text{filt}}$ & \textbf{Average filtered full-scan correlation} across both comparison directions \\
-\hline
 $\overline{cor}_{\text{cell},\text{filt}}$ & \textbf{Average filtered cell-wise correlation} across all cells in both comparison directions \\
-\hline
 $\overline{|S|}_{\text{full}}$ & \textbf{Average filtered full-scan neighborhood size} across both comparison directions \\
-\hline
 $s_{\text{full},|S|}$ & \textbf{Standard deviation of the filtered full-scan neighborhood sizes} across both comparison directions \\
-\hline
 $\overline{|S|}_{\text{cell}}$ & \textbf{Average filtered cell-wise neighborhood sizes} across all cells in both comparison directions \\
-\hline
-$\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wise neighborhood sizes} across all cells in both comparison direction \\
-\hline
+$\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wise neighborhood sizes} across all cells in both comparison direction
 \end{tabular}
 \caption{Six similarity features calculated based on visual diagnostics.}
 \label{tab:visualDiagnosticFeatures}
@@ -949,8 +924,8 @@ plt <- accuracyData %>%
                      expand = expansion(0),
                      labels = scales::percent) +
   scale_y_discrete(position = "right") +
-  labs(y = "Model Type") +
-  theme(panel.grid.major.y = element_blank())
+  # labs(y = "Model Type") +
+  theme(panel.grid.major.y = element_blank(),axis.title.y = element_blank())
 
 ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 5,width = 7)
 knitr::plot_crop("figures/trainingAccuracy.png")
@@ -1000,13 +975,14 @@ plt <- varImportanceData %>%
   geom_jitter(size=.7,width = .1,height = 0) +
   coord_flip() +
   theme_bw() +
-  labs(x = "Feature Name",
+  labs(#x = "Feature Name",
        y = "Mean Gini Index Decrease (Log Scale)") +
   scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
   scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)),
                 breaks = c(30,100,300,1000),
                 labels = c("30","100","300","1000"),
-                limits = c(30,NA))
+                limits = c(30,NA)) +
+  theme(axis.title.y = element_blank())
 
 ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
 ```
@@ -1108,7 +1084,8 @@ plt <- testAccuracy_plt %>%
              scales = "free",
              switch = "y") +
   theme_bw() +
-  scale_x_continuous(expand = expansion(c(0,.2)),
+  scale_x_continuous(#expand = expansion(c(0,.2)),
+                     limits = c(NA,1),
                      labels = scales::percent,
                      breaks = scales::breaks_pretty(n = 3)) +
   scale_y_discrete(labels = scales::label_wrap(width = 20),
@@ -1157,14 +1134,12 @@ knitr::include_graphics("figures/testAccuracy.png")
 ```{=tex}
 \begin{table}[htbp]
 \centering
-\begin{tabular}{|p{.11\linewidth}|p{.25\linewidth}|p{.25\linewidth}|p{.25\linewidth}|}
+\begin{tabular}{p{.15\linewidth} p{.2\linewidth} p{.2\linewidth} p{.2\linewidth}}
+Original Paper & Similarities to ACES & Original Use & ACES Use \\
 \hline
-\textbf{Original Paper} & \textbf{Similarities to ACES} & \textbf{Original Use} & \textbf{ACES Use} \\
+\citet{song_proposed_2013} & Use \autoref{alg:cellComparison} to estimate cell-based registrations & Call cells Congruent Matching Cells if their registrations are close to a reference value. Classify a cartridge case pair as a match if the CMC count is at least 6. & Compute six summative features based on full-scan and cell registrations. Use features in a classifier model. \\
 \hline
-\citet{song_proposed_2013} & Use the cell-based comparison procedure outline in \autoref{alg:cellComparison} to compute estimated registrations & Call cells Congruent Matching Cells if their registrations are close to a reference value. Classify a cartridge case pair as a match if the CMC count is at least 6. & Compute six summative features based on full-scan and cell registrations. Use features in a classifier model. \\
-\hline
-\citet{zhang_convergence_2021} & Use DBSCAN algorithm to identify cells that reach a consensus registration & Classify a cartridge case pair as a match if a DBSCAN cluster is identified. & Compute four numerical features based on DBSCAN clusters across both comparison directions. Use features in a classifier model. \\
-\hline
+\citet{zhang_convergence_2021} & Use DBSCAN algorithm to identify cells that reach a consensus registration & Classify a cartridge case pair as a match if a DBSCAN cluster is identified. & Compute four numerical features based on DBSCAN clusters across both comparison directions. Use features in a classifier model.
 \end{tabular}
 \caption{Comparison of the ACES algorithm to previous work. Although ACES shares similarities to previously-proposed algorithms, it includes additional nuance by computing features across both comparison directions and using these features in a classifier model.}
 \label{tab:previousWorkComparison}
@@ -1184,26 +1159,22 @@ Further, there are only two parameters in the DBSCAN algorithm to be selected, t
 ```{=tex}
 \begin{table}[htbp]
 \centering
-\begin{tabular}{|l|r|r|r|}
+\begin{tabular}{l r r r}
+Classification Method & Error (\%) & False Positive (\%) & False Negative (\%)\\
 \hline
-\textbf{Classification Method} & \textbf{Accuracy} & \textbf{True Negative} & \textbf{True Positive} \\
-\hline
-CMC method & \% & \% & \% \\
-\hline
-Only $C_0$ feature & 97.9\% & 99.98\%\% & 70.3\% \\
-\hline
-ACES Random Forest & 98.8\% & 99.7\% & 87.2\% \\
-\hline
+CMC method & 2.77 & 0.48 & 33.89 \\
+Only $C_0$ feature & 2.06 & 0.03 & 29.70 \\
+ACES Random Forest & 1.13 & 0.27 & 12.82
 \end{tabular}
-\caption{Accuracy, True Negative, and True Positive rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
+\caption{Testing classification error, false positive, and false negative rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
 \label{tab:classifMethodComparison}
 \end{table}
 ```
 
 It should be noted that the original implementation of the CMC method is not openly available at the time of writing.
 Instead, we compare the ACES algorithm to an implementation of the CMC method available in the cmcR package \citep{cmcR}.
-When we applied this implementation to the data set discussed in this paper, we obtained a test classification accuracy of \jz{[x]%}, consisting of \jz{[y]%} true positive and \jz{[z]%} true negative rates.
-These results highlight the fact that the ACES algorithm is more robust than the CMC algorithm.
+When we applied this implementation to the data set discussed in this paper, we obtained a test classification error of 2.77\%.
+These results highlight the fact that the ACES algorithm is more effective than previously proposed methods, particularly in identifying truly matching cartridge case pairs.
 
 Similarly, \citet{zhang_convergence_2021} proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
 This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
@@ -1635,7 +1606,7 @@ logisticRegOddsFactors %>%
                              varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
                              TRUE ~ "")) %>%
   knitr::kable(col.names = c("Feature Name","Odds Multiplier"),
-               align = "c",label = "logistOddsMult",
+               align = c("l","r"),label = "logistOddsMult",
                caption = "Logistic regression-estimated multiplicative increase in the odds that a cartridge case pair is truly matching for a one unit increase in the associated feature, holding all other features constant. For brevity, we consider the top five features in terms of the odds multiplier. Note that the Cluster Indicator feature only takes on values 0 or 1.",
                format = "latex",booktabs = TRUE,escape = FALSE)
 ```

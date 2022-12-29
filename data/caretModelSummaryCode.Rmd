@@ -483,6 +483,18 @@ testAccuracy %>%
   facet_wrap( ~ featureGroup,ncol = 1)
 
 save(testAccuracy,file = "testAccuracy.RData")
+
+testAccuracy %>%
+  filter(featureGroup == "Relevant Features" & modelType == "Random Forest")
+```
+
+```{r}
+caretData_testImputed %>%
+  mutate(pred = ifelse(noClusterInd,"non-match","match")) %>%
+  select(type,pred) %>%
+  summarize(accuracy = mean(type == pred),
+            truePos = sum(pred == "match" & type == "match")/sum(type == "match"),
+            trueNeg = sum(pred == "non-match" & type == "non-match")/sum(type == "non-match"))
 ```
 
 
