@@ -535,3 +535,100 @@ caretModels %>%
   })
 ```
 
+
+# Compare ROC/AUC of models
+
+```{r}
+load("caretModels.RData")
+```
+
+```{r}
+dat <- caretModels %>%
+    filter(modelType == "Random Forest" & featureGroup == "Relevant Features") %>% 
+  pull(fittedModel) %>%
+  .[[1]]
+
+dat1 <- caretModels %>%
+    filter(modelType == "Logistic Regression" & featureGroup == "Relevant Features") %>% 
+  pull(fittedModel) %>%
+  .[[1]]
+
+rf_roc <- dat$trainingData %>%
+                       select(.outcome) %>%
+                       rename(truth = .outcome) %>%
+                       mutate(predicted = dat$finalModel$predicted) %>%
+                       bind_cols(dat$finalModel$votes %>% as.data.frame())
+
+lr_roc <- dat1$trainingData %>%
+                       select(.outcome) %>%
+                       rename(truth = .outcome) %>%
+                       mutate(match = 1 - dat1$finalModel$fitted.values,
+                              predicted = ifelse(match >= .5,"match","non-match"))
+
+bind_rows(yardstick::roc_curve(data = rf_roc,truth,match) %>% mutate(model = "RF"),
+          yardstick::roc_curve(data = lr_roc,truth,match) %>% mutate(model = "LR")) %>%
+  ggplot(aes(x = 1 - specificity,y = sensitivity,colour = model)) +
+  geom_line() +
+  # coord_fixed() +
+  xlim(NA,1) +
+  ylim(c(.85,NA)) +
+  theme_bw()
+
+yardstick::roc_auc(data = lr_roc,truth,match)
+yardstick::roc_auc(data = rf_roc,truth,match)
+```
+
+```{r}
+# the models' ROC curves swap around a False Positive (1 - specificity) value of
+# .125, which corresponds to a probability decision threshold of about 0.23
+newClassifBoundary <- yardstick::roc_curve(data = rf_roc,truth,match) %>% 
+  filter((1 - specificity) > .12 & (1 - specificity) < .13) %>%
+  pull(.threshold) %>%
+  mean()
+
+# consider the accuracy if we go with the LR  model's classification when the
+# class prob is less than 0.23 and the RF model's classif otherwise.
+
+load("caretData_fullAlignedScanCropped_testImputed.RData")
+
+
+testModelProb <- caretData_testImputed %>%
+  mutate(rfProb = predict(dat,caretData_testImputed,type = "prob") %>%
+  pull(match),
+  lrProb = predict(dat1,
+        caretData_testImputed %>%
+          mutate(noClusterIndTRUE = ifelse(noClusterInd,1,0)),
+        type = "prob") %>%
+  pull(match))
+
+testModelPreds <- testModelProb %>%
+  mutate(rfProbHigh = rfProb > .23) %>%
+  group_by(rfProbHigh) %>%
+  group_split() %>%
+  map_dfr(function(rfProbDat){
+    
+    if(all(rfProbDat$rfProbHigh)){
+      
+      rfProbDat <- rfProbDat %>%
+        mutate(pred = predict(dat,rfProbDat))
+      
+    }
+    else{
+      
+      rfProbDat <- rfProbDat %>%
+        mutate(pred = predict(dat1,rfProbDat))
+      
+    }
+    
+    return(rfProbDat)
+    
+  })
+
+testModelPreds %>%
+  select(type,pred) %>%
+  summarize(error = mean(type != pred)*100,
+            falsePos = sum(type == "non-match" & pred == "match")/sum(type == "non-match")*100,
+            falseNeg = sum(type == "match" & pred == "non-match")/sum(type == "match")*100)
+```
+
+

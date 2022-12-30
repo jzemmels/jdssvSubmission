@@ -154,9 +154,11 @@ In this work, we introduce a novel cross-validation procedure to learn and test 
 
 # Cartridge Case Data
 
-We use 510 cartridge cases collected as part of a study by \citet{baldwin} where 80 cartridge cases were fired from each of 25 Ruger SR9 handguns.
+We use 510 cartridge cases collected as part of a study by \citet{baldwin} where 80 fired cartridge cases were collected from each of 25 Ruger SR9 handguns.
+
+
 According to \citet{pcast}, this is the only study to-date to be "appropriately designed to test the foundational validity and estimate reliability [of firearm and toolmark examiner conclusions]."
-The goal of the original study was to measure the false negative and false positive error rates of 218 forensic examiners.
+\citet{baldwin} aimed to measure the false negative and false positive error rates of 218 forensic examiners.
 A false negative error occurs when truly matching cartridge cases, fired from the same firearm, are classified as non-matches.
 Conversely, a false positive error occurs when non-matching cartridge cases are classified as matches.
 For each comparison, examiners were provided a set of three known-match cartridge cases and a single unknown-source cartridge case.
@@ -1162,9 +1164,9 @@ Further, there are only two parameters in the DBSCAN algorithm to be selected, t
 \begin{tabular}{l r r r}
 Classification Method & Error (\%) & False Positive (\%) & False Negative (\%)\\
 \hline
-CMC method & 2.77 & 0.48 & 33.89 \\
-Only $C_0$ feature & 2.06 & 0.03 & 29.70 \\
-ACES Random Forest & 1.13 & 0.27 & 12.82
+CMC method & 2.8 & 0.48 & 33.9 \\
+Only $C_0$ feature & 2.1 & 0.03 & 29.7 \\
+ACES Random Forest & 1.1 & 0.27 & 12.8
 \end{tabular}
 \caption{Testing classification error, false positive, and false negative rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
 \label{tab:classifMethodComparison}
