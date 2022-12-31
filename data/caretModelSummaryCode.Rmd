@@ -579,6 +579,13 @@ yardstick::roc_auc(data = rf_roc,truth,match)
 ```
 
 ```{r}
+yardstick::roc_curve(data = rf_roc,truth,match) %>%
+  mutate(rateDistance = abs(specificity - sensitivity)) %>%
+  arrange(rateDistance)
+```
+
+
+```{r}
 # the models' ROC curves swap around a False Positive (1 - specificity) value of
 # .125, which corresponds to a probability decision threshold of about 0.23
 newClassifBoundary <- yardstick::roc_curve(data = rf_roc,truth,match) %>% 

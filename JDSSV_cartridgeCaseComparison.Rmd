@@ -85,20 +85,24 @@ library(x3ptools)
 library(tidyverse)
 library(patchwork)
 ```
-\hh{Generally for tables, no vertical lines.}
 
-\hh{I think we need an overview picture to set the stage for an audience who is large unfamiliar with anything firearms related. How about you move up figure 1 and include (a) cartridge cases with an arrow pointing to the primer. (b) an image of the confocal light microscope taking an image of a cartridge case (c) a comparison microscope image (d) the marked up image (maybe even from the side).
-I'm thinking of something along the lines of Xiao Hui's paper: https://www.semanticscholar.org/paper/Automatically-matching-topographical-measurements-a-Tai-Eddy/6532cc25b9104d42844418254641acdab01fadf8/figure/0}
+<!-- \hh{Generally for tables, no vertical lines.} -->
+
+<!-- \hh{I think we need an overview picture to set the stage for an audience who is large unfamiliar with anything firearms related. How about you move up figure 1 and include (a) cartridge cases with an arrow pointing to the primer. (b) an image of the confocal light microscope taking an image of a cartridge case (c) a comparison microscope image (d) the marked up image (maybe even from the side). -->
+<!-- I'm thinking of something along the lines of Xiao Hui's paper: https://www.semanticscholar.org/paper/Automatically-matching-topographical-measurements-a-Tai-Eddy/6532cc25b9104d42844418254641acdab01fadf8/figure/0} -->
+
 # Introduction
 
 A \emph{cartridge case} is part of firearm ammunition that houses the projectile and propulsive device.
 When a firearm is discharged and the projectile travels down the barrel, the cartridge case moves in the opposite direction and slams against the back wall, the \emph{breech face}, of the firearm.
 Markings on the breech face are "stamped" into the surface of the cartridge case leaving so-called \emph{breech face impressions}.
 
-Forensic examiners use these impressions analogous to a fingerprint to determine whether two cartridge cases were fired from the same firearm.
-Typically, the examination involves the use of a microscope to assess the "agreement" between the markings on two cartridge cases.
-Depending on the outcome of this comparison, the forensic examiner decides if the cartridge cases share or do not share a common source or if there is "inconclusive" evidence to decide \citep{AFTE1992}.
-The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure \citep{Vorburger2015,xiaoHui_seminar}.
+In a traditional examination, forensic examiners use these impressions analogous to a fingerprint to determine whether two cartridge cases were fired from the same firearm.
+The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure \citep{xiaoHui_seminar,Zheng2014,Vorburger2015}.
+First, two cartridge cases are collected - perhaps one is from a crime scene and the other is collected from a suspect's gun.
+An examiner places the two cartridge cases beneath a "comparison microscope" that merges the views of two compound microscopes into a single split view, similar to what is shown in \autoref{fig:examination-algorithm-comparison}.
+The examiner assesses the degree of similarity between the markings on the cartridge cases and decides whether the cartridge cases share share a common source or that the evidence is "inconclusive" \citep{AFTE1992}.
+
 
 <!-- Forensic examinations measure the probative value of a piece of evidence. -->
 <!-- Typically, a forensic examiner visually inspects the evidence to determine its source. -->
@@ -108,7 +112,7 @@ The top of \autoref{fig:examination-algorithm-comparison} illustrates this proce
 <!-- Keep focus on firearm and toolmark evidence. -->
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:examination-algorithm-comparison} Comparison of the traditional examination vs. the currently proposed method for comparing cartridge cases. Both start with two fired cartridge cases. In traditional examination, an examiner uses a microscope to assess the "agreement" of markings on the two cartridge case surfaces. They decide whether or not the cartridge cases were fired from the same firearm, or if there is inconclusive evidence to decide. In the ACES algorithm, we take a topographical scan of the cartridge case surfaces and manually identify the regions containing distinguishable markings (shown in red). We pass these scans to the ACES algorithm, which processes and compares the two scans. The final result is a numerical measure of similarity of the two cartridge cases.'}
-knitr::include_graphics("images/Cartridge on Sensofar Scope/examination_vs_algorithm_comparison.png")
+knitr::include_graphics("images/Cartridge on Sensofar Scope/examination_vs_algorithm_comparison_twoScansSideView.png")
 ```
 
 Critics of traditional comparisons cite a lack of "foundational validity" underlying the procedures used by firearm and toolmark examiners \citep{nas2009,pcast}.
@@ -154,22 +158,24 @@ In this work, we introduce a novel cross-validation procedure to learn and test 
 
 # Cartridge Case Data
 
-We use 510 cartridge cases collected as part of a study by \citet{baldwin} where 80 fired cartridge cases were collected from each of 25 Ruger SR9 handguns.
-
+We use 510 cartridge cases collected as part of a study by \citet{baldwin} who obtained 25 new Ruger SR9, 9mm Luger centerfire pistols and 20,000 Remington 9mm pistol cartridges.
+The authors collected 800 fired cartridges from each handgun using a "brass catcher," a soft mesh box with an opening to catch fired cartridges after ejecting from the pistol.
 
 According to \citet{pcast}, this is the only study to-date to be "appropriately designed to test the foundational validity and estimate reliability [of firearm and toolmark examiner conclusions]."
 \citet{baldwin} aimed to measure the false negative and false positive error rates of 218 forensic examiners.
 A false negative error occurs when truly matching cartridge cases, fired from the same firearm, are classified as non-matches.
 Conversely, a false positive error occurs when non-matching cartridge cases are classified as matches.
-For each comparison, examiners were provided a set of three known-match cartridge cases and a single unknown-source cartridge case.
+
+For each comparison, examiners were provided 15 sets of three known-match cartridge cases and a single unknown-source cartridge case.
 Their task was to determine whether the unknown-source cartridge case matched the other three.
 The reported false negative error rate across all 218 examiners was 0.367% while the reported false positive error rate was 1.01%.
 However, it should be noted that "inconclusive" decisions were treated as correct, no matter the ground-truth nature of the cartridge case set \citep{hofmann_inconclusives_2021}.
 
 We scanned the 510 cartridge cases using the Cadre 3D-TopMatch High Capacity Scanner \citep{topmatch}.
-Briefly, this scanner collects images under various lighting conditions of a gel pad into which the cartridge case surface is impressed.
-Proprietary software that accompanies this scanner combines these images into a regular 2D array called a \emph{surface matrix}.
-This surface matrix, along with metadata concerning parameters under which the scan was taken (size, resolution, author, etc.), are stored in the ISO standard XML 3D Surface Profile (\texttt{x3p}) file type \citep{ISO25178-72}.
+Briefly, this scanner collects images under various lighting conditions of a gel pad into which the base of a cartridge case is impressed.
+Proprietary software that accompanies this scanner combines these images into a 2D array called a \emph{surface matrix}.
+The elements of a surface matrix represent the relative height values of the associated cartridge case surface.
+This surface matrix, along with metadata concerning parameters under which the scan was taken (dimension, resolution, author, etc.), are stored in the ISO standard XML 3D Surface Profile (\texttt{x3p}) file type \citep{ISO25178-72}.
 
 
 \jz{[cite eventual DFSC data-in-brief or ISU datashare repo?]}
