@@ -6,23 +6,56 @@ title: "R Notebook"
 library(tidyverse)
 library(cowplot)
 library(patchwork)
-load("caretData_fullAlignedScanCropped_train.RData")
+load("caretData_fullAlignedScanCropped_withCompNames_train.RData")
+caretData <- caretData_withCompNames
 ```
 
 ```{r}
-load("caretModels.RData")
+# change focus to using the "No Cluster Ind" feature as a baseline
+# load("caretModels.RData")
+load("caretModels_noClusterIndBaseline.RData")
 ```
 
 
 # Training accuracy data
 
 ```{r}
-accuracyData <- caretModels %>%
+clusterIndFeatureBaseline <- caret::train(form = type ~ .,
+                                          data = caretModels_noClusterIndBaseline$fittedModel[[1]]$trainingData %>%
+                                            select(.outcome,noClusterInd) %>%
+                                            rename(type = .outcome),
+                                          metric = "Accuracy",
+                                          trControl = caret::trainControl(method = "repeatedcv",
+                                                                          number = 10,
+                                                                          repeats = 3,
+                                                                          classProbs = TRUE,
+                                                                          # summaryFunction = twoClassSummary,
+                                                                          savePredictions = TRUE),
+                                          method = "rpart")
+
+accuracyData <- caretModels_noClusterIndBaseline %>%
+  bind_rows(tibble(
+    fileName = NA,
+    fittedModel = list(clusterIndFeatureBaseline),
+    modelType = "Binary Classifier",
+    modelLabel = "Bin.",
+    featureGroup = "C0"
+  )) %>%
+  mutate(featureGroup = factor(featureGroup,
+                               levels = c("C0",
+                                          "C0 + Other Density Features",
+                                          "C0 + Other Density + Registration Features",
+                                          "All ACES Features"),
+                               labels = c('C[0]',
+                                          'C[0]~+~Other~Density',
+                                          expression(atop(C[0]~+~Other~Density~'+',Registration)),
+                                          "All~ACES~Features"))) %>%
   pmap_dfr(~ {
     
-    ..3$results %>%
-      mutate(modelType = ..1,
-             featureGroup = ..2) %>%
+    ..2$results %>%
+      mutate(modelType = ..3,
+             modelLabel = ..4,
+             featureGroup = ..5) %>%
       select(modelType,featureGroup,everything())
     
   }) %>%
@@ -32,27 +65,21 @@ accuracyData <- caretModels %>%
                names_to = "paramName",values_to  = "paramValue") %>%
   filter(!is.na(paramValue))
 
-accuracyData
-
 save(accuracyData,file = "accuracyData.RData")
 ```
 
 
 
 ```{r}
-dat <- caretModels %>%
-  filter(featureGroup == "All Features" & modelType == "Random Forest" ) %>%
-  pull(fittedModel)
-
 registrationFeaturesPlt <- 
-  dat[[1]]$trainingData %>%
-  select(!contains("ccf")) %>%
-  select(contains("_mean"),contains("_sd"),"pairwiseCompCor",.outcome) %>%
-  select(!contains("difference")) %>%
+  caretData_withCompNames %>%
+  select(c("cell_x_mean","cell_x_sd","cell_y_mean","cell_y_sd",
+           "cell_theta_mean","cell_theta_sd","type")) %>%
   mutate(cell_x_mean = abs(cell_x_mean),
          cell_y_mean = abs(cell_y_mean),
-         cell_theta_mean = abs(cell_theta_mean)) %>%
-  pivot_longer(cols = !contains(".outcome"),names_to = "varName") %>%
+         cell_theta_mean = abs(cell_theta_mean),
+         type = ifelse(type == "non.match","non-match",type)) %>%
+  pivot_longer(cols = !contains("type"),names_to = "varName") %>%
   mutate(varName = 
            case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
                      varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
@@ -68,28 +95,24 @@ registrationFeaturesPlt <-
                      varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
                      varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
                      varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
-                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
-                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Differences Correlation SD",
                      varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
-                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Mean Differences Correlation",
                      varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
                      varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     varName == "filteredElemRatio_mean" ~ "Cell-Based Mean Similarities vs. Differences Ratio",
+                     varName == "filteredElemRatio_sd" ~ "Cell-Based Similarities vs. Differences Ratio SD",
+                     varName == "filteredElemRatio_fullScan" ~ "Full-Scan Similarities vs. Differences Ratio",
                      TRUE ~ "")) %>%
-  mutate(varName = factor(varName,levels = c("Cell-Based Vertical Translation Mean",
-                                             "Cell-Based Horizontal Translation Mean",
-                                             "Cell-Based Rotation Mean",
-                                             "Cell-Based Vertical Translation SD",
-                                             "Cell-Based Horizontal Translation SD",
-                                             "Cell-Based Rotation SD",
-                                             "Full-Scan Pairwise Complete Correlation",
-                                             "Cell-Based Pairwise Complete Correlation Mean",
-                                             "Cell-Based Pairwise Complete Correlation SD"))) %>%
-  filter(!(varName %in% c("Full-Scan Pairwise Complete Correlation",
-                                             "Cell-Based Pairwise Complete Correlation Mean",
-                                             "Cell-Based Pairwise Complete Correlation SD"))) %>%
-  # group_by(varName) %>%
-  # mutate(value = ifelse(round(value,3) == median(round(value,3)),NA,value)) %>%
-  ggplot(aes(x = value,fill = .outcome)) +
+  mutate(varName = factor(varName,
+                          levels = c("Cell-Based Horizontal Translation Mean",
+                                     "Cell-Based Vertical Translation Mean",
+                                     "Cell-Based Rotation Mean",
+                                     "Cell-Based Horizontal Translation SD",
+                                     "Cell-Based Vertical Translation SD",
+                                     "Cell-Based Rotation SD"))) %>%
+  ggplot(aes(x = value,fill = type)) +
   geom_density(alpha = .5) +
   facet_wrap(~varName,scales = "free",labeller = label_wrap_gen(width = 40)) +
   theme_bw() +
@@ -103,14 +126,11 @@ registrationFeaturesPlt <-
        x = "Feature Value")
 
 correlationFeaturesPlt <- 
-  dat[[1]]$trainingData %>%
-  select(!contains("ccf")) %>%
-  select(contains("_mean"),contains("_sd"),"pairwiseCompCor",.outcome) %>%
-  select(!contains("difference")) %>%
-  mutate(cell_x_mean = abs(cell_x_mean),
-         cell_y_mean = abs(cell_y_mean),
-         cell_theta_mean = abs(cell_theta_mean)) %>%
-  pivot_longer(cols = !contains(".outcome"),names_to = "varName") %>%
+  caretData_withCompNames %>%
+  select(c("cell_pairwiseCompCor_sd","cell_pairwiseCompCor_mean",
+           "pairwiseCompCor","type")) %>%
+  mutate(type = ifelse(type == "non.match","non-match",type)) %>%
+  pivot_longer(cols = !contains("type"),names_to = "varName") %>%
   mutate(varName = 
            case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
                      varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
@@ -126,28 +146,21 @@ correlationFeaturesPlt <-
                      varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
                      varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
                      varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
-                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
-                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Differences Correlation SD",
                      varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
-                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Mean Differences Correlation",
                      varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
                      varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     varName == "filteredElemRatio_mean" ~ "Cell-Based Mean Similarities vs. Differences Ratio",
+                     varName == "filteredElemRatio_sd" ~ "Cell-Based Similarities vs. Differences Ratio SD",
+                     varName == "filteredElemRatio_fullScan" ~ "Full-Scan Similarities vs. Differences Ratio",
                      TRUE ~ "")) %>%
-  mutate(varName = factor(varName,levels = c("Cell-Based Vertical Translation Mean",
-                                             "Cell-Based Horizontal Translation Mean",
-                                             "Cell-Based Rotation Mean",
-                                             "Cell-Based Vertical Translation SD",
-                                             "Cell-Based Horizontal Translation SD",
-                                             "Cell-Based Rotation SD",
-                                             "Full-Scan Pairwise Complete Correlation",
-                                             "Cell-Based Pairwise Complete Correlation Mean",
-                                             "Cell-Based Pairwise Complete Correlation SD"))) %>%
-  filter(varName %in% c("Full-Scan Pairwise Complete Correlation",
-                                             "Cell-Based Pairwise Complete Correlation Mean",
-                                             "Cell-Based Pairwise Complete Correlation SD")) %>%
-  # group_by(varName) %>%
-  # mutate(value = ifelse(round(value,3) == median(round(value,3)),NA,value)) %>%
-  ggplot(aes(x = value,fill = .outcome)) +
+  mutate(varName = factor(varName,
+                          levels = c("Cell-Based Pairwise Complete Correlation Mean",
+                                     "Cell-Based Pairwise Complete Correlation SD",
+                                     "Full-Scan Pairwise Complete Correlation"))) %>%
+  ggplot(aes(x = value,fill = type)) +
   geom_density(alpha = .5) +
   facet_wrap(~varName,scales = "free",labeller = label_wrap_gen(width = 40)) +
   theme_bw() +
@@ -161,8 +174,8 @@ correlationFeaturesPlt <-
        x = "Feature Value")
 
 plt <- (registrationFeaturesPlt /
-    plot_spacer() /
-    correlationFeaturesPlt) +
+          plot_spacer() /
+          correlationFeaturesPlt) +
   patchwork::plot_layout(guides = "collect",heights = c(1,.2,.33)) &
   theme(legend.position = "bottom")
 
@@ -171,20 +184,20 @@ knitr::plot_crop("../images/registrationFeatureDensities.png")
 ```
 
 ```{r}
-load("caretData_fullAlignedScanCropped_train.RData")
+load("caretData_fullAlignedScanCropped_withCompNames_train.RData")
+caretData <- caretData_withCompNames
 
 densityFeatures <- caretData %>%
-  select(!contains("ccf")) %>%
-  select(contains("clust"),"thetaDiff",type) %>%
-  select(!contains("difference")) %>%
-  mutate(noClusterInd = 1 - noClusterInd) %>%
-  rename(clusterInd = noClusterInd) %>%
-  # mutate(cell_x_mean = abs(cell_x_mean),
-  #        cell_y_mean = abs(cell_y_mean),
-  #        cell_theta_mean = abs(cell_theta_mean)) %>%
+  select(c("noClusterInd","clusterSize_ave",
+           "thetaDiff","clustCenterDiff",
+           "type")) %>%
+  mutate(clusterSize_ave = ifelse(noClusterInd,NA,clusterSize_ave),
+         clustCenterDiff = ifelse(noClusterInd,NA,clustCenterDiff),
+         clusterInd = 1 - noClusterInd) %>%
   pivot_longer(cols = !contains("type"),names_to = "varName") %>%
   mutate(varName = 
-           case_when(varName == "clusterInd" ~ "Cluster Indicator",
+           case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
+                     varName == "clusterInd" ~ "Cluster Indicator",
                      varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
                      varName == "clusterSize_ave" ~ "Cluster Size",
                      varName == "cell_y_mean" ~ "Cell-Based Vertical Translation Mean",
@@ -198,32 +211,38 @@ densityFeatures <- caretData %>%
                      varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
                      varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
                      varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
-                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
-                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Differences Correlation SD",
                      varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
-                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Mean Differences Correlation",
                      varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
                      varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     varName == "filteredElemRatio_mean" ~ "Cell-Based Mean Similarities vs. Differences Ratio",
+                     varName == "filteredElemRatio_sd" ~ "Cell-Based Similarities vs. Differences Ratio SD",
+                     varName == "filteredElemRatio_fullScan" ~ "Full-Scan Similarities vs. Differences Ratio",
                      TRUE ~ ""))
 ```
 
 ```{r}
 clusterIndicator <- densityFeatures %>%
-  filter(varName == "Cluster Indicator") %>%
-  group_by(type,value) %>%
+  filter(varName == "Cluster Indicator" & value == 0) %>%
+  group_by(varName,type,value) %>%
   tally() %>%
   group_by(value) %>%
   mutate(n = n/sum(n),
-         value = factor(value)) %>%
+         value = factor(value,labels = c("NA"))) %>%
   ggplot(aes(x = value,y = n,fill = type)) +
   geom_bar(stat = "identity",alpha = .5) +
   theme_bw() +
   theme(legend.position = "none",
-        axis.title = element_text(size = 8)) +
+        axis.title.y = element_text(size = 8),
+        axis.title.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
   scale_fill_manual(values = c("orange","gray50")) +
-  labs(x = "Cluster Indicator",
-       y = "Proportion",
+  labs(y = "Proportion",
        fill = "Outcome") +
+  facet_wrap(~ varName) +
   coord_fixed(expand = FALSE,ratio = 2)
 ```
 
@@ -251,11 +270,11 @@ clusterSize_missing <- densityFeatures %>%
         axis.title.y = element_text(size = 8),
         strip.text = element_text(size = 8)) +
   labs(#x = "Cluster Size",
-       y = "Proportion",
-       fill = "Outcome") +
+    y = "Proportion",
+    fill = "Outcome") +
   coord_cartesian(expand = FALSE)
 
-clusterSize_nonMissing <-densityFeatures %>%
+clusterSize_nonMissing <- densityFeatures %>%
   filter(varName == "Cluster Size")  %>%
   group_by(value) %>%
   mutate(missingValue = ifelse(is.na(value),"Cluster Missing","Cluster Non-missing"),
@@ -264,12 +283,10 @@ clusterSize_nonMissing <-densityFeatures %>%
   summarize(n = n()) %>%
   group_by(missingValue) %>%
   mutate(n = n/sum(n))  %>%
-  filter(missingValue == "Cluster Non-missing") %>%
+  filter(missingValue == "Cluster Non-missing")  %>%
   ggplot() +
   geom_bar(aes(x = value,y = n,fill = type),stat = "identity",
            alpha = .5,width = .5) +
-  # geom_histogram(aes(x = value,y = ..percent..,fill = type),binwidth = 1,alpha = .5) +
-  # facet_wrap(~missingValue,scales = "free") +
   scale_fill_manual(values = c("orange","gray50")) +
   theme_bw() +
   scale_x_continuous(breaks = c(0,5,10,15,20),
@@ -278,7 +295,7 @@ clusterSize_nonMissing <-densityFeatures %>%
         axis.title.y = element_blank(),
         axis.title.x = element_text(size = 8
                                     # ,hjust = 0
-                                    )) +
+        )) +
   labs(x = "Cluster Size",
        # y = "Proportion",
        fill = "Outcome")
@@ -316,22 +333,9 @@ translationDifference <- densityFeatures %>%
 ```
 
 ```{r}
-# ((clusterIndicator + ((clusterSize_missing | clusterSize_nonMissing) +
-#                        patchwork::plot_layout(widths = c(.3,1)))) /
-#    (rotationDifference + translationDifference)) &
-#   patchwork::plot_layout(guides = "collect") + 
-#   theme(legend.position = "bottom")
-# 
-# (((clusterSize_missing | clusterSize_nonMissing | rotationDifference | translationDifference) +
-#     plot_layout(widths = c(.2,1,1,1))) /
-#     guide_area()) +
-#   patchwork::plot_layout(heights = c(1,.1)) +
-#   patchwork::plot_layout(guides = "collect") + 
-#   theme(legend.position = "bottom")
-
 densityFeatureDistributions <- ((((clusterSize_missing | clusterSize_nonMissing) + plot_layout(widths = c(.1,1))) /
-  (rotationDifference | translationDifference)) /
-   guide_area()) +
+                                   (rotationDifference | translationDifference)) /
+                                  guide_area()) +
   patchwork::plot_layout(heights = c(1,1,.1),guides = "collect") + 
   theme(legend.position = "bottom")
 
@@ -344,12 +348,20 @@ knitr::plot_crop("../images/densityFeatureDistributions.png")
 
 ```{r}
 plt <- caretData %>%
-  select(!contains("ccf")) %>%
-  select(contains("difference"),contains("neighborhood"),"type") %>%
-  select(-cell_differenceCor_ave_sd) %>%
+  select(c("fullScan_neighborhoodSizeAve_ave",
+           "fullScan_neighborhoodSizeSD_ave",
+           "differenceCor_ave",
+           # "cell_differenceCor_ave_sd",
+           "cell_neighborhoodSizeAve_ave",
+           "cell_differenceCor_ave_mean",
+           "cell_neighborhoodSizeSD_ave",
+           "filteredElemRatio_mean",
+           "filteredElemRatio_sd",
+           "filteredElemRatio_fullScan",
+           "type")) %>%
   pivot_longer(cols = !contains("type"),names_to = "varName") %>%
   mutate(varName = 
-           case_when(varName == "clusterInd" ~ "Cluster Indicator",
+           case_when(varName == "noClusterInd" ~ "No Cluster Indicator",
                      varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
                      varName == "clusterSize_ave" ~ "Cluster Size",
                      varName == "cell_y_mean" ~ "Cell-Based Vertical Translation Mean",
@@ -363,27 +375,36 @@ plt <- caretData %>%
                      varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
                      varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
                      varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
-                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
-                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Filtered Correlation SD",
+                     varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Differences Correlation SD",
                      varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
-                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation Mean",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Mean Differences Correlation",
                      varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
                      varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
-                     TRUE ~ "")) %>%
+                     varName == "filteredElemRatio_mean" ~ "Cell-Based Mean Similarities vs. Differences Ratio",
+                     varName == "filteredElemRatio_sd" ~ "Cell-Based Similarities vs. Differences Ratio SD",
+                     varName == "filteredElemRatio_fullScan" ~ "Full-Scan Similarities vs. Differences Ratio",
+                     TRUE ~ ""),
+         type = ifelse(type == "non.match","non-match",type)) %>%
   filter(!(varName == "Cell-Based Average Labeled Neighborhood Size" & value >= 125) & 
-           !(varName == "Full-Scan Average Labeled Neighborhood Size" & value >= 300)) %>%
+           !(varName == "Full-Scan Average Labeled Neighborhood Size" & value >= 300) &
+           !(varName == "Cell-Based Mean Similarities vs. Differences Ratio" & value >= 8) &
+           !(varName == "Cell-Based Similarities vs. Differences Ratio SD" & value >= 8)) %>%
   mutate(varName = factor(varName,
-                          levels = c("Cell-Based Filtered Correlation Mean",
+                          levels = c("Cell-Based Mean Similarities vs. Differences Ratio",
+                                     "Cell-Based Similarities vs. Differences Ratio SD",
+                                     "Full-Scan Similarities vs. Differences Ratio",
+                                     "Cell-Based Mean Differences Correlation",
                                      "Cell-Based Average Labeled Neighborhood Size",
                                      "Cell-Based Labeled Neighborhood Size SD",
-                                     "Full-Scan Filtered Correlation",
+                                     "Full-Scan Differences Correlation",
                                      "Full-Scan Average Labeled Neighborhood Size",
                                      "Full-Scan Labeled Neighborhood Size SD"))) %>%
   ggplot() +
   geom_density(aes(x = value,fill = type),alpha = .5) +
   theme_bw() +
   scale_fill_manual(values = c("orange","gray50")) +
-  facet_wrap(~varName,scales = "free",
+  facet_wrap(~varName,scales = "free",ncol = 3,
              labeller = label_wrap_gen(width = 30)) +
   theme(legend.position = "bottom",
         axis.title.y = element_blank(),
@@ -394,7 +415,7 @@ plt <- caretData %>%
        x = "Feature Value",
        fill = "Outcome")
 
-ggsave(filename = "../images/visualDiagnosticDensities.png",plot = plt,width = 7,height = 3)
+ggsave(filename = "../images/visualDiagnosticDensities.png",plot = plt,width = 7,height = 5)
 knitr::plot_crop("../images/visualDiagnosticDensities.png")
 ```
 
@@ -417,26 +438,32 @@ varImportanceData <- rf_repeated$rfFit %>%
            varImportance = plt[,1])
     
   }) %>%
-  mutate(varName = 
+  mutate(varName =
            case_when(varName == "noClusterInd" ~ "Cluster Indicator",
-                     varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation",
+                     varName == "cell_pairwiseCompCor_mean" ~ "Cell-Based Pairwise Complete Correlation Mean",
                      varName == "clusterSize_ave" ~ "Cluster Size",
+                     varName == "cell_y_mean" ~ "Cell-Based Vertical Translation Mean",
                      varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD",
                      varName == "thetaDiff" ~ "Estimated Rotation Difference",
+                     varName == "cell_x_mean" ~ "Cell-Based Horizontal Translation Mean",
                      varName == "cell_x_sd" ~ "Cell-Based Vertical Translation SD",
                      varName == "pairwiseCompCor" ~ "Full-Scan Pairwise Complete Correlation",
                      varName == "clustCenterDiff" ~ "Estimated Translation Difference",
                      varName == "fullScan_neighborhoodSizeAve_ave" ~ "Full-Scan Average Labeled Neighborhood Size",
                      varName == "fullScan_neighborhoodSizeSD_ave" ~ "Full-Scan Labeled Neighborhood Size SD",
+                     varName == "cell_theta_mean" ~ "Cell-Based Rotation Mean",
                      varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
-                     varName == "differenceCor_ave" ~ "Full-Scan Filtered Correlation",
+                     varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
+                     varName == "cell_differenceCor_ave_sd" ~ "Cell-Based Differences Correlation SD",
                      varName == "cell_neighborhoodSizeAve_ave" ~ "Cell-Based Average Labeled Neighborhood Size",
-                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Filtered Correlation",
-                     varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Corr. SD",
+                     varName == "cell_differenceCor_ave_mean" ~ "Cell-Based Mean Differences Correlation",
+                     varName == "cell_pairwiseCompCor_sd" ~ "Cell-Based Pairwise Complete Correlation SD",
                      varName == "cell_neighborhoodSizeSD_ave" ~ "Cell-Based Labeled Neighborhood Size SD",
+                     varName == "filteredElemRatio_mean" ~ "Cell-Based Mean Similarities vs. Differences Ratio",
+                     varName == "filteredElemRatio_sd" ~ "Cell-Based Similarities vs. Differences Ratio SD",
+                     varName == "filteredElemRatio_fullScan" ~ "Full-Scan Similarities vs. Differences Ratio",
                      TRUE ~ ""),
-         iterate = rep(1:10,each = 16))
-
+         iterate = rep(1:10,each = length(unique(varName))))
 
 save(varImportanceData,file = "varImportanceData.RData")
 ```
@@ -444,8 +471,8 @@ save(varImportanceData,file = "varImportanceData.RData")
 # CART Decision tree plot
 
 ```{r,eval=FALSE}
-cartModel_relevFeatures <- caretModels %>%
-  filter(featureGroup == "Relevant Features" & modelType == "CART") %>%
+cartModel_relevFeatures <- caretModels_noClusterIndBaseline %>%
+  filter(featureGroup == "All ACES Features" & modelType == "Classification Tree") %>%
   pull(fittedModel) %>% .[[1]]
 
 rpart.plot::rpart.plot(cartModel_relevFeatures$finalModel,type=2,digits=3)
@@ -457,21 +484,48 @@ rpart.plot::rpart.plot(cartModel_relevFeatures$finalModel,type=2,digits=3)
 ```{r}
 load("caretData_fullAlignedScanCropped_testImputed.RData")
 
-testAccuracy <- caretModels %>%
+testAccuracy <- caretModels_noClusterIndBaseline %>%
   pmap_dfr(~ {
     
     caretData_testImputed %>%
-      mutate(predClass = predict(..3,newdata = caretData_testImputed)) %>%
+      mutate(predClass = predict(..2,newdata = caretData_testImputed)) %>%
+      mutate(type = ifelse(as.character(type) == "non.match","non-match",as.character(type)),
+             predClass = ifelse(as.character(predClass) == "non.match","non-match",as.character(predClass))) %>%
       select(type,predClass) %>%
       summarize(
         errorRate = mean(type != predClass),
         falsePos = sum(type == "non-match" & predClass == "match")/sum(type == "non-match"),
         falseNeg = sum(type == "match" & predClass == "non-match")/sum(type == "match")) %>%
-      mutate(modelType = ..1,
-             featureGroup = ..2) %>%
+      mutate(modelType = ..3,
+             featureGroup = ..5) %>%
       select(modelType,featureGroup,everything())
     
-  })%>%
+  }) %>%
+  bind_rows(
+    caretData_testImputed %>%
+  select(type,noClusterInd) %>%
+  mutate(predClass = ifelse(noClusterInd,"non-match","match")) %>%
+  mutate(type = ifelse(as.character(type) == "non.match","non-match",as.character(type)),
+             predClass = ifelse(as.character(predClass) == "non.match","non-match",as.character(predClass))) %>%
+  select(type,predClass) %>%
+      summarize(
+        errorRate = mean(type != predClass),
+        falsePos = sum(type == "non-match" & predClass == "match")/sum(type == "non-match"),
+        falseNeg = sum(type == "match" & predClass == "non-match")/sum(type == "match")) %>%
+  mutate(modelType = "Binary Classifier",
+         featureGroup = "C0")) %>%
+  mutate(featureGroup = factor(featureGroup,
+                               levels = c("C0",
+                                          "C0 + Other Density Features",
+                                          "C0 + Other Density + Registration Features",
+                                          "All ACES Features"),
+                               labels = c('C[0]',
+                                          'C[0]~+~Other~Density',
+                                          expression(atop(C[0]~+~Other~Density~'+',Registration)),
+                                          "All~ACES~Features")),
+         modelType = factor(modelType,levels = c("Binary Classifier","Classification Tree","Logistic Regression",
+                                          "Random Forest"),
+                     labels = c("Bin.","CART","LR","RF")))  %>%
   mutate(Accuracy = 1 - errorRate,
          truePos = 1 - falseNeg,
          trueNeg = 1 - falsePos)
@@ -483,9 +537,6 @@ testAccuracy %>%
   facet_wrap( ~ featureGroup,ncol = 1)
 
 save(testAccuracy,file = "testAccuracy.RData")
-
-testAccuracy %>%
-  filter(featureGroup == "Relevant Features" & modelType == "Random Forest")
 ```
 
 ```{r}
@@ -502,7 +553,7 @@ caretData_testImputed %>%
 # Calculate logistic regression parameter
 
 ```{r}
-logReg_relevFeatures <- caretModels %>%
+logReg_relevFeatures <- caretModels_noClusterIndBaseline %>%
   filter(featureGroup == "Relevant Features" & modelType == "Logistic Regression") %>%
   pull(fittedModel) %>% .[[1]]
 
@@ -523,7 +574,7 @@ save(logisticRegOddsFactors,file = "../data/logisticRegOddsMultipliers.RData")
 # Identify close non-match comparisons
 
 ```{r}
-caretModels %>%
+caretModels_noClusterIndBaseline %>%
   filter(featureGroup == "Relevant Features") %>%
   pmap(~ {
     
@@ -539,31 +590,31 @@ caretModels %>%
 # Compare ROC/AUC of models
 
 ```{r}
-load("caretModels.RData")
+load("caretModels_noClusterIndBaseline.RData")
 ```
 
 ```{r}
-dat <- caretModels %>%
-    filter(modelType == "Random Forest" & featureGroup == "Relevant Features") %>% 
+dat <- caretModels_noClusterIndBaseline %>%
+  filter(modelType == "Random Forest" & featureGroup == "Relevant Features") %>% 
   pull(fittedModel) %>%
   .[[1]]
 
-dat1 <- caretModels %>%
-    filter(modelType == "Logistic Regression" & featureGroup == "Relevant Features") %>% 
+dat1 <- caretModels_noClusterIndBaseline %>%
+  filter(modelType == "Logistic Regression" & featureGroup == "Relevant Features") %>% 
   pull(fittedModel) %>%
   .[[1]]
 
 rf_roc <- dat$trainingData %>%
-                       select(.outcome) %>%
-                       rename(truth = .outcome) %>%
-                       mutate(predicted = dat$finalModel$predicted) %>%
-                       bind_cols(dat$finalModel$votes %>% as.data.frame())
+  select(.outcome) %>%
+  rename(truth = .outcome) %>%
+  mutate(predicted = dat$finalModel$predicted) %>%
+  bind_cols(dat$finalModel$votes %>% as.data.frame())
 
 lr_roc <- dat1$trainingData %>%
-                       select(.outcome) %>%
-                       rename(truth = .outcome) %>%
-                       mutate(match = 1 - dat1$finalModel$fitted.values,
-                              predicted = ifelse(match >= .5,"match","non-match"))
+  select(.outcome) %>%
+  rename(truth = .outcome) %>%
+  mutate(match = 1 - dat1$finalModel$fitted.values,
+         predicted = ifelse(match >= .5,"match","non-match"))
 
 bind_rows(yardstick::roc_curve(data = rf_roc,truth,match) %>% mutate(model = "RF"),
           yardstick::roc_curve(data = lr_roc,truth,match) %>% mutate(model = "LR")) %>%
@@ -601,12 +652,12 @@ load("caretData_fullAlignedScanCropped_testImputed.RData")
 
 testModelProb <- caretData_testImputed %>%
   mutate(rfProb = predict(dat,caretData_testImputed,type = "prob") %>%
-  pull(match),
-  lrProb = predict(dat1,
-        caretData_testImputed %>%
-          mutate(noClusterIndTRUE = ifelse(noClusterInd,1,0)),
-        type = "prob") %>%
-  pull(match))
+           pull(match),
+         lrProb = predict(dat1,
+                          caretData_testImputed %>%
+                            mutate(noClusterIndTRUE = ifelse(noClusterInd,1,0)),
+                          type = "prob") %>%
+           pull(match))
 
 testModelPreds <- testModelProb %>%
   mutate(rfProbHigh = rfProb > .23) %>%

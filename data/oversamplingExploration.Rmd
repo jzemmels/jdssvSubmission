@@ -1,0 +1,174 @@
+---
+title: "R Notebook"
+---
+
+To train/test the ACES algorithm, we compare pairs of cartridge cases for which ground-truth (i.e., the source firearm) is known.
+As such, there are considerably fewer "matching" comparisons than "non-matching" comparisons in our training and testing data sets.
+We consider how oversampling the matching comparisons up to the same number of non-matching comparisons affects the classification accuracy of logistic regression and random forest classifiers.
+
+The code below assumes that the following files are in the current working directory:
+
+- `caretData_fullAlignedScanCropped_train.RData`: features based on pairwise comparisons in the training data set.
+
+- `caretData_fullAlignedScanCropped_testImputed.RData`: features based on pairwise comparisons in the testing data set. NOTE: missing values have been imputed with replacement values from the training data set.
+
+- `caretModels.RData`: a tibble of pre-trained classifiers based on various feature group combinations
+
+The `caret` package has built-in functionality to easily change the sampling scheme used in training. We then use the `yardstick` package to calculate the ROC/AUC curves of four models: logistic regression/random forest + with/without oversampling matching comparisons. 
+
+**Conclusions:** The results (bottom of the Rmd file) indicate that oversampling during training slightly improves model performance (based on AUC), but not enough to warrant adding this step to the ACES pipeline.
+
+# Consider sampling techniques to handle class imbalance
+
+```{r}
+library(tidyverse)
+library(caret)
+
+load("caretData_fullAlignedScanCropped_train.RData")
+load("caretData_fullAlignedScanCropped_testImputed.RData")
+
+caretData <- caretData %>%
+  mutate(across(!matches("type"),
+                .fns = ~ ifelse(is.na(.x),
+                                median(.x,na.rm = TRUE),.x)))
+
+caretData_fewerFeatures <- 
+  caretData %>%
+  select(-c(contains("ccf"),
+            cell_x_mean,
+            cell_y_mean,
+            cell_theta_mean,
+            cell_differenceCor_ave_sd)) %>%
+  mutate(type = ifelse(type == "non-match","nonmatch","match"))
+
+randomForest_caret_fewerFeatures_down <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        classProbs = TRUE,
+                                        # summaryFunction = twoClassSummary,
+                                        savePredictions = TRUE,
+                                        sampling = "down"),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_fewerFeatures))),
+                                              ceiling(sqrt(ncol(caretData_fewerFeatures))),
+                                              12)),
+               method = "rf")
+
+randomForest_caret_fewerFeatures_up <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        classProbs = TRUE,
+                                        # summaryFunction = twoClassSummary,
+                                        savePredictions = TRUE,
+                                        sampling = "up"),
+               tuneGrid = data.frame(mtry = c(2,
+                                              floor(sqrt(ncol(caretData_fewerFeatures))),
+                                              ceiling(sqrt(ncol(caretData_fewerFeatures))),
+                                              12)),
+               method = "rf")
+```
+
+```{r}
+logisticReg_caret_fewerFeatures_down <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        classProbs = TRUE,
+                                        # summaryFunction = twoClassSummary,
+                                        savePredictions = TRUE,
+                                        sampling = "down"),
+               method = "glm",
+               family = "binomial")
+
+logisticReg_caret_fewerFeatures_up <- 
+  caret::train(form = type ~ .,
+               data = caretData_fewerFeatures %>%
+                 mutate(type = factor(type)),
+               metric = "Accuracy",
+               trControl = trainControl(method = "repeatedcv",
+                                        number = 10,
+                                        repeats = 3,
+                                        classProbs = TRUE,
+                                        # summaryFunction = twoClassSummary,
+                                        savePredictions = TRUE,
+                                        sampling = "up"),
+               method = "glm",
+               family = "binomial")
+```
+
+
+```{r}
+load("caretModels.RData")
+
+dat <- caretModels %>%
+  filter(modelType %in% c("Random Forest","Logistic Regression") & featureGroup == "Relevant Features") %>%
+  pull(fittedModel)
+
+caretData_testImputed %>%
+  select(type) %>%
+  mutate(
+    lr_noSample = as.character(predict(dat[[1]],newdata = caretData_testImputed)),
+    lr_downsample = as.character(predict(logisticReg_caret_fewerFeatures_down,newdata = caretData_testImputed)),
+         lr_upsample = as.character(predict(logisticReg_caret_fewerFeatures_up,newdata = caretData_testImputed)),
+    rf_noSample = as.character(predict(dat[[2]],newdata = caretData_testImputed)),
+    rf_downsample = as.character(predict(randomForest_caret_fewerFeatures_down,newdata = caretData_testImputed)),
+    rf_upsample = as.character(predict(randomForest_caret_fewerFeatures_up,newdata = caretData_testImputed)))  %>%
+  pivot_longer(cols = 2:7) %>%
+  mutate(value = ifelse(value == "nonmatch","non-match",value)) %>%
+  group_by(name) %>%
+  summarize(error = mean(type != value))
+
+rocCurves <- map2_dfr(list(dat[[1]],
+                           # logisticReg_caret_fewerFeatures_down,
+                           logisticReg_caret_fewerFeatures_up,
+                           dat[[2]],
+                           # randomForest_caret_fewerFeatures_down,
+                           randomForest_caret_fewerFeatures_up
+                           ),
+     c("LR No Sampling",
+       # "LR Downsample Non-matches",
+       "LR Oversample Matches"
+       ,"RF No Sampling",
+       # "RF Downsample Non-matches",
+       "RF Oversample Matches"
+       ),
+     ~ {
+       
+       dat1 <- caretData_testImputed %>%
+         select(type) %>%
+         mutate(truth = factor(type)) %>%
+         bind_cols(predict(.x,newdata = caretData_testImputed,type = "prob"))
+       
+       return(yardstick::roc_curve(data = dat1,truth,match) %>%
+                mutate(model = .y,
+                       auc = yardstick::roc_auc(data = dat1,truth,match) %>% pull(.estimate) %>% unique()))
+       
+     })
+
+rocCurves %>%
+  ggplot(aes(x = 1 - specificity,y = sensitivity,colour = model)) +
+  geom_line() +
+  # coord_fixed() +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  guides(colour = guide_legend(nrow = 2)) +
+  coord_cartesian(ylim = c(.8,1),xlim = c(0,1),expand = FALSE) +
+  scale_colour_manual(values = RColorBrewer::brewer.pal(n = 4,name = "Dark2"))
+
+rocCurves %>%
+  select(model,auc) %>% distinct()
+```
