@@ -43,12 +43,14 @@ accuracyData <- caretModels_noClusterIndBaseline %>%
   )) %>%
   mutate(featureGroup = factor(featureGroup,
                                levels = c("C0",
-                                          "C0 + Other Density Features",
-                                          "C0 + Other Density + Registration Features",
+                                          # "C0 + Other Density Features",
+                                          # "C0 + Other Density + Registration Features",
+                                          "C0 + Registration Features",
                                           "All ACES Features"),
                                labels = c('C[0]',
-                                          'C[0]~+~Other~Density',
-                                          expression(atop(C[0]~+~Other~Density~'+',Registration)),
+                                          # 'C[0]~+~Other~Density',
+                                          # expression(atop(C[0]~+~Other~Density~'+',Registration)),
+                                          "C[0]~+~Registration~Features",
                                           "All~ACES~Features"))) %>%
   pmap_dfr(~ {
     
@@ -515,14 +517,16 @@ testAccuracy <- caretModels_noClusterIndBaseline %>%
   mutate(modelType = "Binary Classifier",
          featureGroup = "C0")) %>%
   mutate(featureGroup = factor(featureGroup,
-                               levels = c("C0",
-                                          "C0 + Other Density Features",
-                                          "C0 + Other Density + Registration Features",
-                                          "All ACES Features"),
-                               labels = c('C[0]',
-                                          'C[0]~+~Other~Density',
-                                          expression(atop(C[0]~+~Other~Density~'+',Registration)),
-                                          "All~ACES~Features")),
+                             levels = c("C0",
+                                        # "C0 + Other Density Features",
+                                        # "C0 + Other Density + Registration Features",
+                                        "C0 + Registration Features",
+                                        "All ACES Features"),
+                             labels = c('C[0]',
+                                        # 'C[0]~+~Other~Density',
+                                        # expression(atop(C[0]~+~Other~Density~'+',Registration)),
+                                        "C[0]~+~Registration~Features",
+                                        "All~ACES~Features")),
          modelType = factor(modelType,levels = c("Binary Classifier","Classification Tree","Logistic Regression",
                                           "Random Forest"),
                      labels = c("Bin.","CART","LR","RF")))  %>%
@@ -539,6 +543,8 @@ testAccuracy %>%
 save(testAccuracy,file = "testAccuracy.RData")
 ```
 
+
+
 ```{r}
 caretData_testImputed %>%
   mutate(pred = ifelse(noClusterInd,"non-match","match")) %>%
@@ -554,7 +560,7 @@ caretData_testImputed %>%
 
 ```{r}
 logReg_relevFeatures <- caretModels_noClusterIndBaseline %>%
-  filter(featureGroup == "Relevant Features" & modelType == "Logistic Regression") %>%
+  filter(featureGroup == "All ACES Features" & modelType == "Logistic Regression") %>%
   pull(fittedModel) %>% .[[1]]
 
 logisticRegOddsFactors <- data.frame(varValue = exp(logReg_relevFeatures$finalModel$coefficients)) %>%

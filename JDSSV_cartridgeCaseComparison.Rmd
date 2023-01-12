@@ -43,7 +43,7 @@ title:
   plain:     "Automatic Matching of Cartridge Case Impressions"
   short:     "Automatic Matching of Cartridge Case Impressions"
 abstract: >
-    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasseses preprocessing, feature extraction, and similarity scoring. Our primary contribution is a set of features used to classify whether two cartridge cases were fired from the same firearm. We use a train/test split on a data set of 510 cartridge case scans to fit and validate random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
+    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasses preprocessing, feature extraction, and similarity scoring. Our primary contribution is a set of features used to classify whether two cartridge cases were fired from the same firearm. We use a train/test split on a data set of 510 cartridge case scans to fit and validate random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
 keywords:
   # at least one keyword must be supplied
   formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}", random forest, cross-validation, classification]
@@ -158,7 +158,7 @@ Furthermore, the cells should "agree" on the registration at which the CCF is ma
 \citet{song_proposed_2013} outlined the "Congruent Matching Cells" algorithm to determine the number of cells that agree on a particular registration.
 A cell is classified as a Congruent Matching Cell (CMC) if its estimated registration is within some threshold of the median registration across all cells and its CCF value is above some threshold.
 A number of follow-up papers proposed alterations to the the original CMC method \citep{tong_improved_2015,chen_convergence_2017}.
- \citet{cmcR} introduced an open-source implementation of the CMC method in the cmcR R package.
+\citet{cmcR} introduced an open-source implementation of the CMC method in the cmcR R package.
 As an alternative to defining Congruent Matching Cells, \citet{zhang_convergence_2021} proposed using a clustering algorithm from \citet{dbscan} to determine the number of cells in agreement on a specific registration.
 
 Currently, there is no rigorous procedure for comparing different cartridge case comparison algorithms.
@@ -360,7 +360,7 @@ NA &\text{otherwise}
 \end{cases}
 \end{align*}
 Other element-wise operations such as $\ominus_{NA}$ are defined similarly.
-For readability, we will use standard operator notation $+, -, >, <, ...$ and assume the extended operations as defined above.
+For readability, we will use standard operator notation $+, -, >, <, I(\cdot), ...$ and assume the extended, element-wise operations as defined above.
 
 
 ```{r,cache=FALSE,include=FALSE}
@@ -521,12 +521,12 @@ From the full-scan and cell-based registration procedures, we obtain six feature
 \begin{table}[htbp]
 \centering
 \begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
-$cor_{\text{full}}$ & \textbf{Full-scan pairwise-complete correlation} after aligning the scans. \\
-$\overline{cor}_{\text{cell}}$ & \textbf{Average cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
-$s_{cor}$ & \textbf{Standard deviation of the cell-based pairwise-complete correlation} after aligning source cells to the target matrix using the cross-correlation function \\
-$s_{m^*}$ & \textbf{Standard deviation of the cell-based vertical translations} \\
-$s_{n^*}$ & \textbf{Standard deviation of the cell-based horizontal translations} \\
-$s_{\theta^*}$ & \textbf{Standard deviation of the cell-based rotations}
+$cor_{\text{full}}$ & Full-scan pairwise-complete correlation \\
+$\overline{cor}_{\text{cell}}$ & Average cell-based pairwise-complete correlation \\
+$s_{cor}$ & Standard deviation of the cell-based pairwise-complete correlations \\
+$s_{m^*}$ & Standard deviation of the cell-based vertical translations \\
+$s_{n^*}$ & Standard deviation of the cell-based horizontal translations \\
+$s_{\theta^*}$ & Standard deviation of the cell-based rotations
 \end{tabular}
 \caption{Six similarity features based on registering full scans and cells.}
 \label{tab:registrationFeatures}
@@ -551,7 +551,7 @@ The task is to isolate the clusters amongst such noise.
 
 We use the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm proposed by \citet{dbscan} to identify clusters.
 Compared to other clustering algorithms such as k-means \citep{MacQueen1967}, DBSCAN does not require a pre-defined number of expected clusters.
-Instead, the algorithm forms clusters based on whether the number of points within an $\epsilon > 0$ distance of a point exceeds some pre-defined threshold, $minPts > 1$.
+Instead, the algorithm forms clusters if the number of points within an $\epsilon > 0$ distance of a point exceeds some pre-defined threshold, $minPts > 1$.
 If a point does not belong to a cluster, then DBSCAN labels that point as "noise."
 In \autoref{fig:dbscanScatterplot}, we use DBSCAN with $\epsilon = 5$ and $minPts = 5$ to identify clusters of size 14 and 13, respectively, visualized as black points.
 These cluster sizes suggest that the scans match.
@@ -668,7 +668,7 @@ Next, we compute clusters using the DBSCAN algorithm amongst the estimated trans
 Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
 We treat the mean cluster centers as the estimated translations $[\hat{m}_d,\hat{n}_d]$.
 
-We calculate four features from the density-based clustering procedure: \textbf{average DBSCAN cluster size} $C$, the \textbf{DBSCAN cluster indicator} $C_0$, and the \textbf{root squared sum of the density-estimated registrations} $(\Delta_\theta, \Delta_{\text{trans}})$ defined as:
+We calculate four features from the density-based clustering procedure: \textbf{average DBSCAN cluster size} $C$, the \textbf{DBSCAN cluster indicator} $C_0$, and the \textbf{root sum of squares of the density-estimated registrations} $(\Delta_\theta, \Delta_{\text{trans}})$ defined as:
 \begin{align*}
 C &= \frac{1}{2}\left(|\pmb{C}_A| + |\pmb{C}_B|\right) \\
 C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
@@ -684,10 +684,10 @@ For truly matching cartridge case pairs, we expect $C$ to be large, $C_0$ to be 
 \begin{table}[htbp]
 \centering
 \begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
-$C$ & \textbf{Average DBSCAN cluster size} across both comparison directions \\
-$C_0$ & \textbf{DBSCAN cluster indicator} of whether DBSCAN clusters exist in both comparison directions \\
-$\Delta_\theta$ & \textbf{Absolute sum of the density-estimated rotations} between both comparison directions  \\
-$\Delta_{\text{trans}}$ & \textbf{Root sum of squares of the cluster-estimated translations} between both comparison directions
+$C$ & Average DBSCAN cluster size \\
+$C_0$ & DBSCAN cluster indicator \\
+$\Delta_\theta$ & Absolute sum of the density-estimated rotations  \\
+$\Delta_{\text{trans}}$ & Root sum of squares of the cluster-estimated translations
 \end{tabular}
 \caption{Four similarity features based on the density-based clustering procedure.}
 \label{tab:dbscanFeatures}
@@ -734,8 +734,34 @@ We calculate the \textbf{average cell-based differences correlation} across all 
 <!-- s_{cor_{diff,\cdot}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{diff,t} - \overline{cor}_{diff,\cdot})^2. -->
 
 Next, we consider features based on the elements of the Boolean $cond$ matrix.
-Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| < \tau$ visualized in black-and-white in the middle with filtered elements shown in white.
-We use a connected components labeling algorithm detailed in \citet{Haralock1991ComputerAR} to identify individual neighborhoods of filtered elements.
+Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| > \tau$ visualized in black-and-white in the middle with filtered elements, whose $cond$ value is $TRUE$, shown in white.
+
+We first calculate the ratio between such a $cond$ matrix and its complement.
+For $d = A$, we consider the $cond$ matrices $|A - B^*| \leq \tau$ and $|A - B^*| > \tau$.
+The ratio is given by
+\begin{align*}
+r_{d} = \frac{\pmb{1}^T I(|A - B^*| \leq \tau) \pmb{1}}{\pmb{1}^T I(|A - B^*| > \tau) \pmb{1}}
+\end{align*}
+where $\pmb{1} \in \mathbb{R}^k$ is a column vector of ones and $I(\cdot)$ is the element-wise, matrix-valued indicator function.
+We consider the average \textbf{full-scan similarities vs. differences ratio} across the two comparison directions:
+\begin{align*}
+r_{\text{full}} = \frac{1}{2}(r_A + r_B).
+\end{align*}
+We expect $r_{\text{full}}$ to be large for matching pairs compared to non-matching pairs.
+That is, truly matching pairs will have more similarities than differences.
+
+We also calculate features based on the ratio for cell comparisons $t = 1,...,T_d$, $d = A,B$.
+Let $r_{d,t}$ denote the ratio for cell comparison $t$ in direction $d$.
+We consider the \textbf{average} and \textbf{standard deviation of the cell-based similarities vs. differences ratio}:
+\begin{align*}
+\bar{r}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} r_{d,t} \\
+s_{\text{cell}, r} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} (r_{d,t} - \bar{r}_{\text{cell}})^2}.
+\end{align*}
+We expect $\bar{r}_{\text{cell}}$ and $s_{\text{cell}, r}$ to be large for matching cartridge case pairs relative to non-match pairs.
+
+Another aspect of the $cond$ matrix we consider is the size of the individual filtered regions.
+For two matching cartridge cases, we expect that there are few differences compared to similarities \emph{and} that the different regions are relatively small.
+We use a connected components labeling algorithm detailed in \citet{Haralock1991ComputerAR} to identify individual "neighborhoods" of filtered elements.
 More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{d,1},S_{d,2},...,S_{d,L_d}\}$ where each $S_{d,l}$ is a set of indices of the $cond$ matrix that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
 The right side of \autoref{fig:filterLabeling} shows each $S_{d,l}$ distinguished by different fill colors, $l = 1,...,L_d$.
 
@@ -852,22 +878,25 @@ We assume that the \textbf{average cell-wise neighborhood size} and the \textbf{
 <!-- s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\ -->
 <!-- s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2. -->
 
-\autoref{tab:visualDiagnosticFeatures} summarizes the six features based on visual diagnostics.
+\autoref{tab:visualDiagnosticFeatures} summarizes the nine features based on visual diagnostics.
 This concludes our explanation of the ACES feature set.
-Next, we use the 16 ACES features to train and test classifier models.
+Next, we use the 19 ACES features to train and test classifier models.
 
 ```{=tex}
 \begin{table}[htbp]
 \centering
 \begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
-$cor_{\text{full},\text{diff}}$ & \textbf{Full-scan differences correlation} across both comparison directions \\
-$\overline{cor}_{\text{cell},\text{diff}}$ & \textbf{Average cell-wise differences correlation} across all cells in both comparison directions \\
-$\overline{|S|}_{\text{full}}$ & \textbf{Average full-scan neighborhood size} across both comparison directions \\
-$s_{\text{full},|S|}$ & \textbf{Standard deviation of the full-scan neighborhood sizes} across both comparison directions \\
-$\overline{|S|}_{\text{cell}}$ & \textbf{Average cell-wise neighborhood sizes} across all cells in both comparison directions \\
-$\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wise neighborhood sizes} across all cells in both comparison direction
+$cor_{\text{full},\text{diff}}$ & Full-scan differences correlation \\
+$\overline{cor}_{\text{cell},\text{diff}}$ & Average cell-wise differences correlation \\
+$r_{\text{full}}$ & Full-scan similarities vs. differences ratio \\
+$\bar{r}_{\text{cell}}$ & Average cell-based similarities vs. differences ratio \\
+$s_{\text{cell}, r}$ & Standard deviation of the cell-based similarities vs. differences ratio \\
+$\overline{|S|}_{\text{full}}$ & Average full-scan neighborhood size \\
+$s_{\text{full},|S|}$ & Standard deviation of the full-scan neighborhood sizes \\
+$\overline{|S|}_{\text{cell}}$ & Average cell-wise neighborhood sizes \\
+$\bar{s}_{\text{cell},|S|}$ & Average standard deviation of the cell-wise neighborhood sizes
 \end{tabular}
-\caption{Six similarity features calculated based on visual diagnostics.}
+\caption{Nine similarity features calculated based on visual diagnostics.}
 \label{tab:visualDiagnosticFeatures}
 \end{table}
 ```
@@ -882,13 +911,13 @@ $\bar{s}_{\text{cell},|S|}$ & \textbf{Average standard deviation of the cell-wis
 ## Scoring
 
 We use a data set of 510 cartridge cases fired from 25 firearms.
-We randomly split the cartridge case data set into 10 firearms for training and 15 firearms for testing.
+We randomly split the data into 10 firearms for training and 15 firearms for testing.
 This resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
-We compute the 16 ACES features for each comparison.
+Because we consider every pairwise comparison between these scans, there is a relatively large class imbalance between matches and non-matches in these data sets.
+In particular, 19,756 of the 21,945 training comparisons (90.0%) and 41,769 of the 44,850 testing comparisons (93.1%) are non-matches.
+<!-- Our experimentation with upsampling matching comparisons or downsampling non-matching comparisons did not yield noticeably different results compared to what we present below. -->
 
-We perform 10-fold cross-validation to train binary classifiers.
-We compare the results of three classifiers: based on a logistic regression, a classification tree \citep{rpart}, and a random forest \citep{randomForest, breiman}. We make use of the training/testing infrastructure of the \pkg{caret} R package \citep{caret}. 
-
+We use 10-fold cross-validation repeated thrice \citep{caret} to train three binary classifiers: based on a logistic regression, a classification tree \citep{rpart}, and a random forest \citep{breiman,randomForest}.
 We use the per-comparison binary classifications and class probabilities computed by these classifiers as measures of similarity.
 The following section details the results of this cross-validation procedure.
 
@@ -897,14 +926,17 @@ The following section details the results of this cross-validation procedure.
 ## Training Results
 
 \autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracy for the three trained models.
-We consider the performance of the three models under different subsets of the ACES feature set, which provides insight into the importance of the various feature groups.
-Namely, the first facet shows the cross-validated classification accuracy based on the the full ACES feature set.
-The remaining plots show the accuracy based on using a combination of two of the three feature groups.
+As a baseline we consider a binary classifier based solely on the Cluster Indicator feature $C_0$.
+Namely, if the DBSCAN algorithm finds a cluster in the cell-based translations for a particular cartridge case pair, then that pair is classified as a match.
+The training classification accuracy associated with this classifier is 96.5%.
 
-We see that the random forest trained on the full ACES data set results in the highest overall accuracy of $98.9\%$.
-For each feature group, the the random forest yields the highest accuracy followed by the logistic regression and CART models.
-We see that the removing the density-based features has a notable impact on the accuracy of the logistic regression and CART models, while the random forest is more is more robust.
-Removal of the registration and visual diagnostic features have less of a significant impact.
+The second and third facets of \autoref{fig:trainingAccuracy} show the accuracy associated with the three classifiers if trained only on an expanding feature set.
+The second facet shows the training accuracy using $C_0$ and the registration-based features.
+We see that the random forest (RF) model has the highest associated accuracy of 98.5%, although the logistic regression (LR) model is a close second with an accuracy of 98.4%.
+This demonstrates the relative importance of the registration-based features.
+The third facet shows the the training accuracy using all 19 ACES features.
+Again, the random forest and logistic regression models perform comparably: 99.162% and 99.157% accuracy, respectively.
+The classification tree (CART) model lags behind the other two models in both scenarios.
 
 ```{r,include=FALSE}
 load("data/accuracyData.RData")
@@ -920,102 +952,111 @@ plt <- accuracyData %>%
   geom_segment(aes(x=.9485,xend=Accuracy,
                    y = modelLabel,yend = modelLabel)) +
   facet_grid(featureGroup~.,scales = "free_y",space = "free",
+             switch = "y",
              labeller = label_parsed) +
   theme_bw() +
   scale_x_continuous(limits = c(.9485,1.00),
                      expand = expansion(0),
                      labels = scales::percent) +
   scale_y_discrete(position = "right") +
-  theme(panel.grid.major.y = element_blank(),axis.title.y = element_blank())
+  theme(strip.text.y = element_text(size = 7),
+        panel.grid.major.y = element_blank(),
+        axis.title.y = element_blank())
 
-ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 5,width = 7)
+ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 4,width = 7)
 knitr::plot_crop("figures/trainingAccuracy.png")
 ```
 
-```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification and regression tree (CART) models based on various subsets of the training data set features. These accuracies are estimated based on 10-fold cross validation repeated thrice. In general, the Classification and Regression Tree (CART) model performs poorest while the Random Forest performs best. Removing the density-based features has the largest impact on the accuracies.',fig.pos="htbp",out.width=".8\\textwidth"}
+```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification tree (CART) models based on various subsets of the ACES feature set. We consider a classifier based on a single feature, the Cluster Indicator feature $C_0$, as a baseline. The inclusion of other ACES features results in a higher classification accuracy over the baseline with the random forest and logistic regression seeing comparably large gains.',fig.pos="htbp",out.width=".8\\textwidth"}
 knitr::include_graphics("figures/trainingAccuracy.png")
 ```
 
-
-<!-- ```{=tex} -->
-<!-- \begin{table}[htbp] -->
-<!-- \centering -->
-<!-- \begin{tabular}{|l|r|r|r|} -->
-<!-- \hline -->
-<!-- \textbf{Model} & \textbf{Overall Error} (\%) & \textbf{False Positive} (\%) & \textbf{False Negative} (\%) \\ -->
-<!-- \hline -->
-<!-- CART & 1.6 & 0.3 & 13.4  \\ -->
-<!-- Random Forest & 1.2 & 0.2 & 10.0 \\ -->
-<!-- \hline -->
-<!-- \end{tabular} -->
-<!-- \caption{Cross-validation estimated error rates for CART and and random forest models.} -->
-<!-- \label{tab:trainingAccuracy} -->
-<!-- \end{table} -->
-<!-- ``` -->
-
-
-<!-- ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."} -->
-<!-- # knitr::include_graphics("images/trainedCART.png") -->
-<!-- knitr::include_graphics("figures/cartModel_allFeatures.png") -->
-<!-- ``` -->
-
-
-\autoref{fig:rfVarImpPlt} shows the distribution of a variable importance measure for each feature across fittings of a random forest model using 10 random seeds.
+Next, we consider the relative importance of the features by fitting 10 replicate random forests using the full ACES feature set with fixed random seeds.
 For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model \citep{hastie_elements_2008}.
 A larger decrease in the Gini Index corresponds with higher importance.
-Noting the log scale on which these points are plotted, we see that the cluster indicator $C_0$ and cell-based pairwise complete correlation $\overline{cor}_{\text{cell}}$ variables are considered by far the most important variable across the random forest fittings.
-Overall, the results indicate that the density-based aggregation and cell-based registration features are considered most important by the random forest models.
+\autoref{fig:rfVarImpPlt} shows the distribution of the mean Gini Index decrease for the 19 ACES features.
+Noting the log scale on which these points are plotted, we see that the cell-based similarities vs. differences ratio $\bar{r}_{cell}$ is the most important variable followed by the cluster indicator $C_0$ and cell-based correlation $\overline{cor}_{\text{cell}}$ approximately tied for second.
+Interestingly, we note that the top three features consist of one feature from each of the three feature groups defined in the Methods section.
 
-```{r,eval=TRUE}
+```{r,eval=TRUE,include=FALSE}
 load("data/varImportanceData.RData")
 
-plt <- varImportanceData %>%
-  ggplot(aes(x = reorder(varName,varImportance),y = varImportance)) +
-  # geom_boxplot() +
-  # geom_point(size = .5) +
+axisLabels <- c(expression(atop(NA,
+                                atop(textstyle('Cell-Based Neighborhood'),
+                                     textstyle('                 Size SD'~bar(s)[cell*','~'|'*S*'|'])))), 
+                expression(atop(NA,
+                                atop(textstyle("Cell-Based Correlation"),
+                                     textstyle('                        SD'~s[cor])))), 
+                # expression(atop(NA,
+                #                 atop(textstyle('Cell-Based Differences'),
+                #                      textstyle('Correlation SD'~)))),
+                expression(atop(NA,
+                                atop(textstyle('Average Cell-Based Differences'),
+                                     textstyle('                  Correlation'~bar(cor)[cell*','~'diff'])))),
+                expression(atop(NA,
+                                atop(textstyle('Average Cell-Based Neighborhood'),
+                                     textstyle('                                       Size'~bar('|'*S*'|')[full])))),
+                expression(atop(NA,
+                                atop(textstyle('Full-Scan Differences'),
+                                     textstyle('Correlation'~cor[full*','~diff])))),
+                expression(atop(NA,
+                                atop(textstyle('Full-Scan Neighborhood'),
+                                     textstyle("                Size SD"~s[full*','~'|'*S*'|'])))),
+                expression('Cell-Based Rotation SD'~s[theta^{"*"}]),
+                expression(atop(NA,
+                                atop(textstyle('Estimated Translation'),
+                                     textstyle('          Difference'~Delta[trans])))),
+                expression('Cluster Size'~C),
+                expression(atop(NA,
+                                atop(textstyle('Cell-Based Similarities vs.'),
+                                     textstyle('Differences Ratio SD'~s[cell*','~r])))),
+                expression(atop(NA,
+                                atop(textstyle('Average Full-Scan Neighborhood'),
+                                     textstyle('                                      Size'~bar('|'*S*'|')[full])))),
+                expression(atop(NA,
+                                atop(textstyle('Full-Scan Similarities vs.'),
+                                     textstyle("    Differences Ratio"~r[full])))),
+                expression(atop(NA,
+                                atop(textstyle('Estimated Rotation'),
+                                     textstyle('          Difference'~Delta[theta])))),
+                expression('Full-Scan Correlation'~cor[full]),
+                expression(atop(NA,
+                                atop(textstyle('Cell-Based Vertical'),
+                                     textstyle('     Translation SD'~s[m^{'*'}])))),
+                expression(atop(NA,
+                                atop(textstyle('Cell-Based Horizontal'),
+                                     textstyle('     Translation SD'~s[n^{'*'}])))),
+                expression(atop(NA,
+                                atop(textstyle('Average Cell-Based'),
+                                     textstyle('      Correlation'~bar(cor)[cell])))),
+                expression('Cluster Indicator'~C[0]),
+                expression(atop(NA,
+                                atop(textstyle('Average Cell-Based Similarities'),
+                                     textstyle('          vs. Differences Ratio'~bar(r)[cell])))))
+
+plt <-  varImportanceData %>%
+  filter(varName != "Cell-Based Differences Correlation SD") %>%
+  ggplot(aes(x = reorder(varName,varImportance,FUN = mean),y = varImportance)) +
   geom_jitter(size=.7,width = .1,height = 0) +
   coord_flip() +
   theme_bw() +
-  labs(#x = "Feature Name",
-       y = "Mean Gini Index Decrease (Log Scale)") +
-  scale_x_discrete(labels = function(x) str_wrap(x,width = 25)) +
+  labs(y = "Mean Gini Index Decrease (Log Scale)") +
+  scale_x_discrete(labels = axisLabels) +
   scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)),
                 breaks = c(30,100,300,1000),
                 labels = c("30","100","300","1000"),
-                limits = c(30,NA)) +
-  theme(axis.title.y = element_blank())
+                limits = c(NA,NA)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_text(hjust = .95,
+                                   vjust = .35))
 
-ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 6,height = 6)
+ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 8,height = 7)
+knitr::plot_crop("figures/varImportanceBoxplot.png")
 ```
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. Points are plotted on a log scale and vertically jittered for visibility. The Cluster Indicator feature $C_0$ and cell-based pairwise complete correlation $\\overline{cor}_{\\text{cell}}$ features are by far the most important, as measured by the mean decrease in the Gini index.",out.width=".9\\textwidth"}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. The top three features consist of one feature from each of the three feature groups defined in the Methods section. Points are plotted on a log scale and vertically jittered for visibility.",out.width=".9\\textwidth"}
 knitr::include_graphics("figures/varImportanceBoxplot.png")
 ```
-
-
-<!-- ```{=tex} -->
-<!-- \begin{table}[htbp] -->
-<!-- \centering -->
-<!-- \begin{tabular}{|l|r|} -->
-<!-- \hline -->
-<!-- \textbf{Feature Name} & \textbf{Relative Importance} \\ -->
-<!-- \hline -->
-<!-- $C$ & 100.0 \\ -->
-<!-- $\overline{CCF}_{\max,\cdot}$ & 29.2 \\ -->
-<!-- $\Delta_{\text{trans}}$ & 29.0 \\ -->
-<!-- $\overline{|S|}_{\cdot}$ & 6.7 \\ -->
-<!-- $\overline{cor}_{\text{comp},\cdot}$ & 6.1 \\ -->
-<!-- $CCF_{\max}$ & 2.7 \\ -->
-<!-- $\Delta_\theta$ & 2.2 \\ -->
-<!-- $\overline{|S|}_{\cdot, \cdot}$ & 1.8 \\ -->
-<!-- $cor_{\text{comp}}$ & 1.4 \\ -->
-<!-- $\sigma_{m^*}^2$ & 1.3 -->
-<!-- \\ \hline -->
-<!-- \end{tabular} -->
-<!-- \caption{Ten most important variables as measured by permutation feature importance in a random forest} -->
-<!-- \label{tab:variableImportance} -->
-<!-- \end{table} -->
-<!-- ``` -->
 
 
 ## Testing Results
@@ -1024,17 +1065,15 @@ For each of the 44,850 cartridge case pairs in the testing data set, we use each
 An error occurs when this prediction does not match the ground-truth nature of the cartridge case pair.
 \autoref{fig:testingAccuracy} summarizes the error rates for each method.
 The Accuracy is the overall percentage of correct classifications.
-The True Negative rate is percentage of correctly-classified non-match pairs.
-Conversely, the True Positive rate is the percentage of correctly-classified matching pairs.
+The True Negative and True Positive rates are the percentage of correctly-classified non-match and match pairs, respectively.
 
 We see that the testing accuracy across models and feature groups is similar to that of the training results in \autoref{fig:trainingAccuracy}.
-The random forest is more robust to changes in feature group while the CART model generally performs worse than the other models.
-Interestingly, the logistic regression model performs slightly better than the random forest for some feature groups.
-Considering the true positive and negative rates, this can be explained by the specificity of the models: the logistic regression model classifies non-matches more effectively in these instances, although this difference is slight.
-Similar to the training results, the CART model has a comparable true negative rate to the other models, but a lower true positive rate.
-
-In contrast to the training results, excluding the registration-based features has a more dramatic impact on the testing accuracy than excluding either of the other two feature groups.
-Excluding the visual diagnostic features seemingly as the least impact on accuracy, although it does noticeably affect the true positive rate.
+Although the $C_0$ baseline classifier yields the highest true negative rate of 99.7%, the low true positive rate of 70.3% indicates a tendency to overclassify pairs as non-matches.
+Compared to the classifier based solely on the Cluster Indicator feature $C_0$, the inclusion of other ACES features markedly improves classification accuracy except for the classification tree (CART) model.
+Again, the random forest and logistic regression models perform comparably with the highest overall accuracy of 99.1% achieved by the the logistic regression model using the full ACES feature set.
+Compared to the training results, the CART model does yield higher accuracy than the baseline classifier.
+This indicates potential overfitting of the CART model to which the random forest and logistic regression models are more robust.
+The logistic regression model using the full ACES feature set provides the best balance of true negative and true positive rates at 99.72% and 90.2%, respectively.
 
 ```{r,include=FALSE}
 load("data/testAccuracy.RData")
@@ -1042,26 +1081,31 @@ load("data/testAccuracy.RData")
 testAccuracy_plt <- testAccuracy %>%
   select(modelType,featureGroup,Accuracy,truePos,trueNeg) %>%
   pivot_longer(cols = 3:5,names_to = "errorType") %>%
-  mutate(errorType = ifelse(errorType == "trueNeg","True Neg. Rate",
-                            ifelse(errorType == "truePos","True Pos. Rate",
+  mutate(errorType = ifelse(errorType == "trueNeg","True~Neg.~Rate",
+                            ifelse(errorType == "truePos","True~Pos.~Rate",
                                    "Accuracy"))) %>%
-  mutate(xstart = ifelse(errorType == "True Pos. Rate",min(value) - .05*min(value),
-                         .97))
+  mutate(xstart = ifelse(errorType == "True~Pos.~Rate",
+                         min(value) - .05*min(value),
+                         .9485))
 
 plt <- testAccuracy_plt %>%
   ggplot(aes(x = value,y = modelType)) +
   geom_point(size = 2) +
-  geom_segment(aes(x=xstart,xend=value,y=modelType,yend=modelType)) +
+  geom_segment(aes(x=xstart,
+                   xend=value,
+                   y=modelType,
+                   yend=modelType)) +
   facet_grid(rows = vars(featureGroup),
              cols = vars(errorType),
-             labeller = label_wrap_gen(width = 15),
+             labeller = label_parsed,
              scales = "free",
+             space = "free_y",
              switch = "y") +
   theme_bw() +
-  scale_x_continuous(expand = expansion(c(0,.07)),
+  scale_x_continuous(expand = expansion(c(0,.04)),
                      limits = c(NA,1),
                      labels = scales::percent,
-                     breaks = scales::breaks_pretty(n = 3)) +
+                     breaks = scales::breaks_pretty(n = 4)) +
   scale_y_discrete(labels = scales::label_wrap(width = 20),
                    position = "right") +
   labs(y = "Model Type") +
@@ -1071,39 +1115,21 @@ plt <- testAccuracy_plt %>%
         axis.text.x = element_text(size = 6),
         axis.text.y = element_text(size = 7))
 
-ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4.5,width = 7)
+ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4,width = 7)
 ```
 
-```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, false negative rate, and false positive rate faceted by various subsets of the testing data set features. The Random Forest and Logistic Regression models have similar accuracies. However, this is primarily because the Logistic Regression model is has a higher true negative rate while the Random Forest model has a higher true positive rate. The CART model lags behind in accuracy due to its lower true positive rate, but has a comparable true negative rate to the other models."}
+```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, true negative rate, and true positive rate faceted for three trained classifier models compared a baseline classifier based on the Cluster Indicator feature $C_0$. The baseline classifier tends to overclassify pairs as non-matches as evidenced by the high true negative, yet low true positive rates. For the Random Forest (RF) and Logistic Regression (LR) mdoels, the inclusion of other ACES features clearly improves the true positive rate at the expense of an only slightly lower true negative rate. The true negative rate of the classification tree (CART) model suffers more for a comparatively smaller increase in true positives making it the lowest performing model overall."}
 knitr::include_graphics("figures/testAccuracy.png")
 ```
 
-
-<!-- ```{=tex} -->
-<!-- \begin{table}[htbp] -->
-<!-- \centering -->
-<!-- \begin{tabular}{|p{.3\textwidth}|r|r|r|} -->
-<!-- \hline -->
-<!-- \textbf{Model} & \textbf{Overall} (\%) & \textbf{False +} (\%) & \textbf{False -} (\%) \\ -->
-<!-- \hline -->
-<!-- CART &  1.3 & 0.3 & 13.7 \\ -->
-<!-- \hline -->
-<!-- Random Forest & 1.1 & 0.4 & 11.3\\ -->
-<!-- \hline -->
-<!-- CMC with Song et al. (2014) parameters & 3.7 & 0.06 & 53.3 \\ -->
-<!-- \hline -->
-<!-- CMC with Song et al. (2018) parameters & 3.1 & 0.6 & 36.1 \\ -->
-<!-- \hline -->
-<!-- \end{tabular} -->
-<!-- \caption{Test set prediction error rates for CART, random forest, and an implementation of the Congruent Method Cells method from Zemmels et al. (2022) using parameter settings from previous papers.} -->
-<!-- \label{tab:testingAccuracy} -->
-<!-- \end{table} -->
-<!-- ``` -->
-<!-- \hline -->
-
-<!-- Examiner conclusions in Baldwin et al. (2014) & 0.8 & 1.0 & 0.4 \\ -->
-
 # Discussion
+
+We use a $C_0$-based classifier as a baseline because it is analogous to the classification rule proposed in \citet{zhang_convergence_2021}.
+Similarly, the cell-based registration features are the same as those used in \citet{song_proposed_2013}.
+Together, $C_0$ and the registration-based features can viewed as a fusion of previously-proposed cartridge case comparison algorithms.
+This is why we consider separate classifiers based on these features for the training and testing results shown in \autoref{fig:trainingAccuracy} and \autoref{fig:testingAccuracy}.
+\autoref{tab:previousWorkComparison} summarizes the similarities between the ACES algorithm and the algorithms proposed in \citet{zhang_convergence_2021} and \citet{song_proposed_2013}.
+A key difference between ACES and both of the previous algorithms is the training procedure used to optimize model parameters.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -1120,15 +1146,11 @@ Original Paper & Similarities to ACES & Original Use & ACES Use \\
 \end{table}
 ```
 
-The cell-based registration features used in the ACES algorithm are functionally the same as the features used in the Congruent Matching Cells algorithm proposed by \citet{song_proposed_2013}.
-However, we augment these features with features from the density-based registration procedure, which tends to be more robust to parameter choice and noisiness than the CMC method.
-In the CMC method, cell registrations are compared to some reference value, typically the median registration across cells.
-The reference value could be considered the "estimated" registration for the CMC method. 
-This requires choosing four parameters: three registration thresholds and one CCF threshold.
-As discussed in [Zemmels et al. (2022)], the CMC method is rather sensitive to choosing these thresholds.
-In contrast, the density-based registration procedure compares cell registrations to each other rather than to an arbitrary reference value.
-An estimated registration is simply a byproduct of the clustering algorithm (e.g., the cluster medioids).
-Further, there are only two parameters in the DBSCAN algorithm to be selected, the neighborhood radius $\epsilon$ and minimum neighborhood size $Minpts$, which simplifies optimization.
+\autoref{tab:classifMethodComparison} shows the test classification error rates of the Congruent Matching Cells (CMC) algorithm proposed in \citet{song_proposed_2013}, the $C_0$-based classifier like the one proposed in \citet{zhang_convergence_2021}, and the ACES logistic regression model.
+We obtained the CMC results by applying the implementation available in the cmcR R package \citep{cmcR} on the same test data set used in the Results section.
+We used the optimization procedure described in [Zemmels et al. (2023)] to select CMC parameters.
+The $C_0$-based error rates are the same as those shown in \autoref{fig:testingAccuracy}.
+The ACES logistic regression model performs considerably better than the other classifiers on this test data set, most notably in identifying matching cartridge case pairs as evidenced by the small false negative error rate.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -1138,36 +1160,57 @@ Classification Method & Error (\%) & False Positive (\%) & False Negative (\%)\\
 \hline
 CMC method & 2.8 & 0.48 & 33.9 \\
 Only $C_0$ feature & 2.1 & 0.03 & 29.7 \\
-ACES Random Forest & 1.1 & 0.27 & 12.8
+ACES Logistic Regression & 0.9 & 0.28 & 9.8
 \end{tabular}
 \caption{Testing classification error, false positive, and false negative rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
 \label{tab:classifMethodComparison}
 \end{table}
 ```
 
-It should be noted that the original implementation of the CMC method is not openly available at the time of writing.
-Instead, we compare the ACES algorithm to an implementation of the CMC method available in the cmcR package \citep{cmcR}.
-When we applied this implementation to the data set discussed in this paper, we obtained a test classification error of 2.77\%.
-These results highlight the fact that the ACES algorithm is more effective than previously proposed methods, particularly in identifying truly matching cartridge case pairs.
-
-Similarly, \citet{zhang_convergence_2021} proposed a binary classifier using the DBSCAN algorithm: if a cluster is identified, then classify the cartridge case pair as a match and otherwise a non-match.
-This is analogous to defining a classification rule based solely on the ACES feature $C_0$.
-Given the importance of $C_0$ indicated in \autoref{fig:rfVarImpPlt}, our results indicate that basing a classifier on $C_0$ is reasonable.
-However, ACES expands upon this decision rule by also comparing the size and location of the clusters across the two comparison directions.
-For example, although one non-match pair in the training data was assigned a DBSCAN cluster, this pair's estimated translation difference, $\Delta_{\text{trans}}$, was relatively large - 23.9 pixels as shown in \autoref{fig:densityDistributions}.
-While a classifier based solely on $C_0$ misclassifies this pair, the ACES random forest and logistic regression models correctly classify this pair as a non-match.
-This illustrates how the added nuance of ACES improves upon previously-proposed algorithms.
-
 Both the registration and density-based features aim to measure similarities between two cartridge case surfaces.
 These features embody the notion that matching cartridge cases should have similar markings, so their cell-based correlations should be large and estimated registrations should agree.
 However, \autoref{fig:cellGridExample} demonstrates that even non-matching cartridge case pairs may share similar markings.
 We are bound to find similarities if that is all we look for, so it is important to also consider dissimilarities.
 The visual diagnostic features accomplish this by partitioning scans into similar and different regions.
-The labeled neighborhood size features measure how extreme the differences are while the differences correlation features measure similarities amongst the differences.
+The similarities vs. differences ratio and labeled neighborhood size features measure how extreme the differences are between two scans while the differences correlation features determine whether there are similarities among the different regions.
 This direct comparison of the surface values aligns with the Theory of Identification which says that an examination should involve the comparison of the "relative height or depth, width, curvature and spatial relationship" of cartridge case impressions \citep{AFTE1992}.
 Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
 As such, it is important that forensic examiners be able to interpret and explain the results of a comparison algorithm.
 The visual diagnostic features are useful for explaining the behavior of the algorithm in a manner that aligns with more traditional identification theory.
+
+Our intention in fitting three classification models across various feature sets was to explore each model's strengths and weaknesses.
+A critical step in putting the ACES algorithm into practice is to settle on a single model.
+Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy on available test data.
+Ethically however, we might favor the model that makes the fewest false positive classifications since misclassifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+In our case, the ACES logistic regression model yields both the highest accuracy and lowest false positive rate on the test set, but this may not generalize to other cartridge cases.
+Further, there is precedent for random forest models to be robust classifiers for forensic evidence \citep{aoas,Park2019}
+
+Another aspect to consider when choosing a model is interpretability and explainability.
+If an algorithm is put into practice, then evidentiary conclusions derived from the algorithm's output will inevitably be presented to a non-expert judge or jury.
+Easily interpretable models are easier for to understand, and therefore should be preferred.
+The classification behavior of the logistic regression and classification tree models are arguably easier to explain than the random forest model.
+For example, the logistic regression model parameters can be intuitively explained in terms of estimated increase in odds of a match.
+Paired with its comparable performance to the random forest, we suggest using the logistic regression model with all 19 ACES features as the new standard to which other proposed algorithms are compared.
+However, we believe that the ultimate decision of which algorithm will be put into practice needs to be deliberated among the wider forensic and legal communities.
+
+# Conclusion
+
+In this paper, we introduced the Automatic Cartridge Evidence Scoring (ACES) algorithm to measure the similarity between two fired cartridge cases based on their breech face impressions.
+In particular, we defined a set of 19 similarity features and used these features to train and test classifier models.
+We validated our algorithm on a set of 510 cartridge cases - the largest validation study of a cartridge case comparison algorithm to-date.
+Compared to predominant algorithms, the ACES algorithm reduces the classification error rate by over 50% on our test data set.
+We propose a logistic regression classifier trained on the ACES feature set as a new benchmark to which future proposed methods are compared.
+
+Before the ACES algorithm can be put into practice, we must devise new stress-tests, using new ammunition and firearm combinations, to assess its robustness.
+A variety of factors, such as make/model and wear, may affect the discriminative power of the 19 features defined in this paper.
+As such, we view the current version of the ACES algorithm as more a foundation for future improvements than a final answer.
+We expect the ACES feature set to evolve over time; for discriminatory features to replace less informative features.
+Given the gravity of the application, we stress interpretability as a guiding principle for future feature engineering and model selection.
+A misunderstood feature or result may lead a lay judge or juror to an incorrect conclusion.
+Additionally, we urge future researchers to use a train/test procedure similar to the one outlined in this paper to validate proposed methods.
+
+We developed the [scored](https://jzemmels.github.io/scored/) R package as an open-source companion to this paper.
+The code and data used in this paper are available at \jz{[link]}.
 
 <!-- While the registration and density-based features share similarities with previously proposed algorithms, the visual diagnostic features are completely novel. -->
 <!-- The visual diagnostic features quantify what our intuition says should be true about matching cartridge case scans: that their surface markings should be similar. -->
@@ -1270,23 +1313,6 @@ The visual diagnostic features are useful for explaining the behavior of the alg
 <!--                       featureGroup = "CMC") -->
 <!-- ``` -->
 
-# Conclusion
-
-More experimentation is needed.
-It is reasonable to assume that the version of ACES discussed in this paper would be effective at classifying cartridge cases of the same brand, fired from the same make/model of firearm, and scanned using the same topographical scanner [cite TopMatch].
-Further exploration into the generalizability of these fitted models to other types of ammunition or firearm is required.
-
-The train/test procedure outlined in this manuscript should be adopted by any future researchers to validate proposed methods.
-[Discuss availability of data and code]
-
-Nonetheless, this paper provides the largest study of automatic cartridge case comparison algorithms published to-date.
-Our results indicate that there exist effective, robust, and interpretable automatic classifiers for cartridge case evidence.
-
-We expect the ACES feature set to evolve over time; for discriminatory features to replace less informative features.
-We stress interpretability as a guiding principle for future feature engineering.
-Ideally, forensic practitioners will eventually use such algorithms to supplement their expert opinion.
-We believe it paramount that practitioners understand and can explain, at least at a high level,  to a jury of lay people the features used for classification.
-[More on why this is important]
 
 \newpage
 
@@ -1568,11 +1594,11 @@ load("data/logisticRegOddsMultipliers.RData")
 logisticRegOddsFactors %>%
   slice(1:5) %>%
   mutate(logistOddsFactor = case_when(varName == "noClusterIndTRUE" ~ "$2.8 \\times 10^{40}$",
-                             varName == "differenceCor_ave" ~ "9,934.6",
-                             varName == "cell_theta_sd" ~ "243.7",
-                             varName == "clustCenterDiff" ~ "1.5",
-                             varName == "cell_y_sd" ~ "1.1",
-                             TRUE ~ "")) %>%
+                                      varName == "differenceCor_ave" ~ "9,934.6",
+                                      varName == "cell_theta_sd" ~ "243.7",
+                                      varName == "clustCenterDiff" ~ "1.5",
+                                      varName == "cell_y_sd" ~ "1.1",
+                                      TRUE ~ "")) %>%
   mutate(varName = case_when(varName == "noClusterIndTRUE" ~ "Cluster Indicator",
                              varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation",
                              varName == "cell_theta_sd" ~ "Cell-Based Rotation SD",
