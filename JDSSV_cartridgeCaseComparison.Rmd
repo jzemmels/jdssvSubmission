@@ -43,7 +43,7 @@ title:
   plain:     "Automatic Matching of Cartridge Case Impressions"
   short:     "Automatic Matching of Cartridge Case Impressions"
 abstract: >
-    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasses preprocessing, feature extraction, and similarity scoring. Our primary contribution is a set of features used to classify whether two cartridge cases were fired from the same firearm. We use a train/test split on a data set of 510 cartridge case scans to fit and validate random forest, logisitic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
+    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasses preprocessing, feature extraction, and similarity scoring. Our primary contribution is a set of features used to classify whether two cartridge cases were fired from the same firearm. We use a train/test split on a data set of 510 cartridge case scans to fit and validate random forest, logistic regression, and Classification and Regression Tree (CART) models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
 keywords:
   # at least one keyword must be supplied
   formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}", random forest, cross-validation, classification]
@@ -126,7 +126,7 @@ knitr::include_graphics("images/Cartridge on Sensofar Scope/examination_vs_algor
 ```
 
 Critics of traditional forensic examinations cite a lack of "foundational validity" underlying the procedures used by firearm and toolmark examiners \citep{nas2009,pcast}.
-In particular, examiners rely largely on their subjective findings rather than on a well-defined procedure to quantify similarity.
+In particular, examiners rely largely on their subjective findings rather than on a well-defined procedure to measure similarity.
 \citet{pcast} pushed for "developing and testing image-analysis algorithms" to objectively measure the similarity between cartridge cases.
 An automatic comparison algorithm could supplement, inform, or dictate an examiner's conclusion \citep{swofford}.
 
@@ -231,7 +231,7 @@ The `x3p_delete` function removes values in the scan based on the associated mas
 Next, the `preProcess_removeTrend` function subtracts a fitted conditional median plane from the surface values to "level-out" any global tilt in the scan.
 The `preProcess_gaussFilter()` function applies a bandpass Gaussian filter to remove small-scale noise and other large-scale structure, which better highlights the medium-scale breech face impressions.
 Finally, the `preProcess_erode()` function applies the morphological operation of erosion on the edge of the non-missing surface values \jz{[cite erosion reference]}.
-This has the effect of shaving-off values on the interior and exterior edge of the surface, which are often extreme "roll-off" values that unduly affect the comparing stage if not removed.
+This has the effect of shaving off values on the interior and exterior edge of the surface, which are often extreme "roll-off" values that unduly affect the comparing stage if not removed.
 The final result is a cartridge case surface matrix with emphasized breech face impressions.
 
 ```{r,cache=TRUE,include=FALSE}
@@ -467,7 +467,7 @@ Calculate translation $[m^*_{A,t,\theta},n^*_{A,t,\theta}] = \arg \max_{m,n} (a_
 \end{algorithm}
 ```
 
-Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_A$ of translations and CCF values for each cell and each rotation considered.
+Rather than exclusively returning the registration that maximizes the overall CCF as in \autoref{alg:registration}, \autoref{alg:cellComparison} returns the set $\pmb{F}_A$ of translations and CCF values for each of the $T_A$ cells and each rotation in $\pmb{\Theta}'_A$.
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:cellGridExample} Estimated registrations of cells from a non-match pair of cartridge cases. A source scan (left) is separated into an $8 \\times 8$ grid of cells. We exclude cells containing only missing values (visualized here as gray pixels). Each source cell is compared to a target scan (right) to estimate where it aligns best. We show a handful of cells at their estimated alignment in the target scan and magnify the surfaces captured by cell pairs 5, 1 and 7, 7. Although the cartridge case pair is non-matching, we note that there are similarities in the surface markings for these cell pairs."}
 knitr::include_graphics("images/cellGridExample_nonMatch.png")
@@ -939,29 +939,35 @@ Again, the random forest and logistic regression models perform comparably: 99.1
 The classification tree (CART) model lags behind the other two models in both scenarios.
 
 ```{r,include=FALSE}
-load("data/accuracyData.RData")
+trainingAccuracy <- readRDS("data/trainingAccuracy.rds")
 
-plt <- accuracyData %>%
+plt <- trainingAccuracy %>%
   group_by(modelType,featureGroup) %>%
-  filter(Accuracy == max(Accuracy)) %>%
-  slice(1) %>%
-  select(modelType,modelLabel,featureGroup,Accuracy) %>%
-  ggplot(aes(x = Accuracy,
+  select(modelType,modelLabel,featureGroup,accuracy) %>%
+  mutate(featureGroup = factor(featureGroup,
+                               levels = c("C0",
+                                          "C0 + Registration Features",
+                                          "All ACES Features"),
+                               labels = c('C[0]',
+                                          "C[0]~+~Registration~Features",
+                                          "All~ACES~Features"))) %>%
+  ggplot(aes(x = accuracy,
              y = modelLabel)) +
   geom_point(size = 2) +
-  geom_segment(aes(x=.9485,xend=Accuracy,
+  geom_segment(aes(x=.94,xend=accuracy,
                    y = modelLabel,yend = modelLabel)) +
   facet_grid(featureGroup~.,scales = "free_y",space = "free",
              switch = "y",
              labeller = label_parsed) +
   theme_bw() +
-  scale_x_continuous(limits = c(.9485,1.00),
+  scale_x_continuous(limits = c(.94,1.00),
                      expand = expansion(0),
                      labels = scales::percent) +
   scale_y_discrete(position = "right") +
   theme(strip.text.y = element_text(size = 7),
         panel.grid.major.y = element_blank(),
-        axis.title.y = element_blank())
+        axis.title.y = element_blank()) +
+  labs(x = "Accuracy")
 
 ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 4,width = 7)
 knitr::plot_crop("figures/trainingAccuracy.png")
@@ -1076,25 +1082,34 @@ This indicates potential overfitting of the CART model to which the random fores
 The logistic regression model using the full ACES feature set provides the best balance of true negative and true positive rates at 99.72% and 90.2%, respectively.
 
 ```{r,include=FALSE}
-load("data/testAccuracy.RData")
+testAccuracy <- readRDS("data/testAccuracy.rds")
 
 testAccuracy_plt <- testAccuracy %>%
-  select(modelType,featureGroup,Accuracy,truePos,trueNeg) %>%
+  mutate(Accuracy = 1 - error,
+         truePos = 1 - falseNeg,
+         trueNeg = 1 - falsePos) %>%
+  select(modelLabel,featureGroup,Accuracy,truePos,trueNeg) %>%
   pivot_longer(cols = 3:5,names_to = "errorType") %>%
   mutate(errorType = ifelse(errorType == "trueNeg","True~Neg.~Rate",
                             ifelse(errorType == "truePos","True~Pos.~Rate",
                                    "Accuracy"))) %>%
   mutate(xstart = ifelse(errorType == "True~Pos.~Rate",
                          min(value) - .05*min(value),
-                         .9485))
-
-plt <- testAccuracy_plt %>%
-  ggplot(aes(x = value,y = modelType)) +
+                         .935),
+         featureGroup = factor(featureGroup,
+                               levels = c("C0",
+                                          "C0 + Registration Features",
+                                          "All ACES Features"),
+                               labels = c('C[0]',
+                                          "C[0]~+~Registration~Features",
+                                          "All~ACES~Features")))
+plt <-  testAccuracy_plt %>%
+  ggplot(aes(x = value,y = modelLabel)) +
   geom_point(size = 2) +
   geom_segment(aes(x=xstart,
                    xend=value,
-                   y=modelType,
-                   yend=modelType)) +
+                   y=modelLabel,
+                   yend=modelLabel)) +
   facet_grid(rows = vars(featureGroup),
              cols = vars(errorType),
              labeller = label_parsed,
@@ -1105,7 +1120,7 @@ plt <- testAccuracy_plt %>%
   scale_x_continuous(expand = expansion(c(0,.04)),
                      limits = c(NA,1),
                      labels = scales::percent,
-                     breaks = scales::breaks_pretty(n = 4)) +
+                     breaks = scales::breaks_pretty(n = 5)) +
   scale_y_discrete(labels = scales::label_wrap(width = 20),
                    position = "right") +
   labs(y = "Model Type") +
@@ -1175,7 +1190,7 @@ The visual diagnostic features accomplish this by partitioning scans into simila
 The similarities vs. differences ratio and labeled neighborhood size features measure how extreme the differences are between two scans while the differences correlation features determine whether there are similarities among the different regions.
 This direct comparison of the surface values aligns with the Theory of Identification which says that an examination should involve the comparison of the "relative height or depth, width, curvature and spatial relationship" of cartridge case impressions \citep{AFTE1992}.
 Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
-As such, it is important that forensic examiners be able to interpret and explain the results of a comparison algorithm.
+As such, it is important that forensic examiners are able to interpret and explain the results of a comparison algorithm.
 The visual diagnostic features are useful for explaining the behavior of the algorithm in a manner that aligns with more traditional identification theory.
 
 Our intention in fitting three classification models across various feature sets was to explore each model's strengths and weaknesses.
@@ -1187,11 +1202,11 @@ Further, there is precedent for random forest models to be robust classifiers fo
 
 Another aspect to consider when choosing a model is interpretability and explainability.
 If an algorithm is put into practice, then evidentiary conclusions derived from the algorithm's output will inevitably be presented to a non-expert judge or jury.
-Easily interpretable models are easier for to understand, and therefore should be preferred.
+More interpretable models are easier to understand, and therefore should be preferred.
 The classification behavior of the logistic regression and classification tree models are arguably easier to explain than the random forest model.
-For example, the logistic regression model parameters can be intuitively explained in terms of estimated increase in odds of a match.
+For example, the logistic regression model parameters can be intuitively explained in terms of the estimated increase in odds of a match.
 Paired with its comparable performance to the random forest, we suggest using the logistic regression model with all 19 ACES features as the new standard to which other proposed algorithms are compared.
-However, we believe that the ultimate decision of which algorithm will be put into practice needs to be deliberated among the wider forensic and legal communities.
+However, we believe that the ultimate decision of which algorithm will be put into practice needs to be made with the input of the wider forensic and legal communities.
 
 # Conclusion
 
@@ -1343,7 +1358,7 @@ Furthermore, information such as relative contributions of the authors may be ad
 \renewcommand{\thesection}{\Alph{section}}
 ```
 
-# Appendix {.unnumbered}
+# Appendix
 
 ## Registration Procedure Details
 
