@@ -163,7 +163,7 @@ As an alternative to defining Congruent Matching Cells, \citet{zhang_convergence
 
 Currently, there is no rigorous procedure for comparing different cartridge case comparison algorithms.
 This includes selecting optimal parameters for a specific algorithm.
-[Zemmels et al. (2022)] proposed an optimization criterion to select parameters for the CMC algorithm.
+\citet{Zemmels2023} proposed an optimization criterion to select parameters for the CMC algorithm.
 Analogously, \citet{aoas} developed a validation procedure to select parameters for a bullet comparison algorithm.
 In this work, we introduce a novel cross-validation procedure to learn and test optimal parameters for the ACES algorithm.
 
@@ -175,13 +175,15 @@ They separated the collected cartridge cases into 15 sets of four to be sent to 
 Each set of four consisted of three cartridge cases labeled as originating from the same firearm, the "known-match" cartridge cases.
 Participants performed an examination to determine whether a fourth "questioned" cartridge case shared a common source with the known-match triplet (or whether the evidence was inconclusive).
 
-\citet{baldwin} aimed to measure the false positive and false negative error rates of the 218 participants.
-A false negative error occurs when truly matching cartridge cases, fired from the same firearm, are classified as non-matches.
-Conversely, a false positive error occurs when non-matching cartridge cases are classified as matches.
-The reported false negative error rate across all 218 examiners was 0.367% while the reported false positive error rate was 1.01%.
-However, it should be noted that "inconclusive" decisions were treated as correct, no matter the ground-truth nature of the cartridge case set \citep{hofmann_inconclusives_2021}.
+Across all 218 examiners, the true positive rate - proportion of correctly classified matching sets - was reported to be 99.6%.
+The reported true negative rate - the proportion of correctly classified non-matching sets - was 65.2%
+The discrepancy between the true positive and true negative rates can be partially explained by the number of "inconclusive" decisions made by the examiners.
+Examiners reach an inconclusive decision when there is some agreement or disagreement in the characteristics between two cartridge cases, but not enough to make a match or non-match conclusion \citep{AFTE1992}.
+Roughly one out of five comparisons, 22.9%, were reported as inconclusive.
+The vast majority, 98.5%, of these inconclusives were truly non-matching comparisons, which justifies the true negative rate of 65.2%.
+There has recently been some debate about how to incorporate inconclusive decisions into accuracy/error rate estimation \citep{hofmann_inconclusives_2021}, so we do not report an overall accuracy here.
 
-We scanned the 510 cartridge cases using the Cadre 3D-TopMatch High Capacity Scanner \citep{topmatch}.
+We scanned the 510 cartridge cases using the Cadre$^{\text{TM}}$ 3D-TopMatch High Capacity Scanner.
 Briefly, this scanner collects images under various lighting conditions of a gel pad into which the base of a cartridge case is impressed.
 Proprietary software that accompanies this scanner combines these images into a 2D array called a \emph{surface matrix}.
 The elements of a surface matrix represent the relative height values of the associated cartridge case surface.
@@ -524,9 +526,9 @@ From the full-scan and cell-based registration procedures, we obtain six feature
 $cor_{\text{full}}$ & Full-scan pairwise-complete correlation \\
 $\overline{cor}_{\text{cell}}$ & Average cell-based pairwise-complete correlation \\
 $s_{cor}$ & Standard deviation of the cell-based pairwise-complete correlations \\
-$s_{m^*}$ & Standard deviation of the cell-based vertical translations \\
-$s_{n^*}$ & Standard deviation of the cell-based horizontal translations \\
-$s_{\theta^*}$ & Standard deviation of the cell-based rotations
+$s_{m^*}$ & Standard deviation of the cell-based vertical translations (pixels) \\
+$s_{n^*}$ & Standard deviation of the cell-based horizontal translations (pixels) \\
+$s_{\theta^*}$ & Standard deviation of the cell-based rotations (degrees)
 \end{tabular}
 \caption{Six similarity features based on registering full scans and cells.}
 \label{tab:registrationFeatures}
@@ -686,8 +688,8 @@ For truly matching cartridge case pairs, we expect $C$ to be large, $C_0$ to be 
 \begin{tabular}{p{.11\linewidth} p{.7\linewidth}}
 $C$ & Average DBSCAN cluster size \\
 $C_0$ & DBSCAN cluster indicator \\
-$\Delta_\theta$ & Absolute sum of the density-estimated rotations  \\
-$\Delta_{\text{trans}}$ & Root sum of squares of the cluster-estimated translations
+$\Delta_\theta$ & Absolute sum of the density-estimated rotations (degrees) \\
+$\Delta_{\text{trans}}$ & Root sum of squares of the cluster-estimated translations (pixels)
 \end{tabular}
 \caption{Four similarity features based on the density-based clustering procedure.}
 \label{tab:dbscanFeatures}
@@ -761,7 +763,7 @@ We expect $\bar{r}_{\text{cell}}$ and $s_{\text{cell}, r}$ to be large for match
 
 Another aspect of the $cond$ matrix we consider is the size of the individual filtered regions.
 For two matching cartridge cases, we expect that there are few differences compared to similarities \emph{and} that the different regions are relatively small.
-We use a connected components labeling algorithm detailed in \citet{Haralock1991ComputerAR} to identify individual "neighborhoods" of filtered elements.
+We use a connected components labeling algorithm detailed in \citet{Hesselink2001} to identify individual "neighborhoods" of filtered elements \citep{imager}.
 More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{d,1},S_{d,2},...,S_{d,L_d}\}$ where each $S_{d,l}$ is a set of indices of the $cond$ matrix that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
 The right side of \autoref{fig:filterLabeling} shows each $S_{d,l}$ distinguished by different fill colors, $l = 1,...,L_d$.
 
@@ -914,237 +916,166 @@ We use a data set of 510 cartridge cases fired from 25 firearms.
 We randomly split the data into 10 firearms for training and 15 firearms for testing.
 This resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
 Because we consider every pairwise comparison between these scans, there is a relatively large class imbalance between matches and non-matches in these data sets.
-In particular, 19,756 of the 21,945 training comparisons (90.0%) and 41,769 of the 44,850 testing comparisons (93.1%) are non-matches.
+Specifically, non-matching comparisons make up 19,756 of the 21,945 (90.0%) training comparisons and 41,769 of the 44,850 (93.1%) testing comparisons.
 <!-- Our experimentation with upsampling matching comparisons or downsampling non-matching comparisons did not yield noticeably different results compared to what we present below. -->
 
-We use 10-fold cross-validation repeated thrice \citep{caret} to train three binary classifiers: based on a logistic regression, a classification tree \citep{rpart}, and a random forest \citep{breiman,randomForest}.
-We use the per-comparison binary classifications and class probabilities computed by these classifiers as measures of similarity.
-The following section details the results of this cross-validation procedure.
+We use 10-fold cross-validation repeated thrice \citep{caret} to train three binary classifiers based on a logistic regression, a classification tree \citep{rpart}, and a random forest \citep{breiman,randomForest}.
+Each of these models predicts the probability that a pair of cartridge cases match.
+Then, the model classifies the pair as a match or non-match depending on whether the match probability exceeds a set threshold.
+On top of the tunable parameters of each model, we treat this threshold as a parameter to be optimized.
+
+We consider different optimization criteria for training each classifier.
+One criterion prescribes selecting the model that maximizes the overall classification accuracy, or the proportion of correct classifications, on the training data.
+For this criterion, we select the match probability threshold that maximizes the overall classification accuracy.
+However, models that are trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class \citep{Fernndez2018}, which in our case are non-matches.
+We will see in the next section that models trained to maximize accuracy on our training data set indeed exhibit this behavior.
+
+An alternative optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values \citep{James2013}.
+The model that maximizes this area, commonly abbreviated AUC, is one that performs best under a variety of threshold values relative to the other models - this consistency is a desired trait.
+Using the ROC curve, we choose the match probability threshold that balances the true positive and true negative rates on the training data.
+
+Once we have a trained model, we use it to predict the match probability and classify a new cartridge case pair.
+We do so for the pairwise comparisons in the test data as a means of comparing the generalizability of the various models.
+The following section details the results of this cross-validation training/testing procedure.
 
 # Results
 
-## Training Results
+\autoref{fig:trainTestAccuracy} summarizes the training and testing accuracy, true negative and true positive rates for 13 binary classifiers.
+We distinguish between the training and testing results using gray and black points/line segments, respectively, which allows us to assess the generalizability of the various models.
+The conclusions drawn from \autoref{fig:trainTestAccuracy} are intended to primarily be qualitative and comparative across models.
+\autoref{tab:trainDataResults} and \autoref{tab:testDataResults} in the Appendix provide a numerical summary of these results.
 
-\autoref{fig:trainingAccuracy} shows the cross-validation estimated accuracy for the three trained models.
-As a baseline we consider a binary classifier based solely on the Cluster Indicator feature $C_0$.
-Namely, if the DBSCAN algorithm finds a cluster in the cell-based translations for a particular cartridge case pair, then that pair is classified as a match.
-The training classification accuracy associated with this classifier is 96.5%.
-
-The second and third facets of \autoref{fig:trainingAccuracy} show the accuracy associated with the three classifiers if trained only on an expanding feature set.
-The second facet shows the training accuracy using $C_0$ and the registration-based features.
-We see that the random forest (RF) model has the highest associated accuracy of 98.5%, although the logistic regression (LR) model is a close second with an accuracy of 98.4%.
-This demonstrates the relative importance of the registration-based features.
-The third facet shows the the training accuracy using all 19 ACES features.
-Again, the random forest and logistic regression models perform comparably: 99.162% and 99.157% accuracy, respectively.
-The classification tree (CART) model lags behind the other two models in both scenarios.
-
-```{r,include=FALSE}
-trainingAccuracy <- readRDS("data/trainingAccuracy.rds")
-
-plt <- trainingAccuracy %>%
-  group_by(modelType,featureGroup) %>%
-  select(modelType,modelLabel,featureGroup,accuracy) %>%
-  mutate(featureGroup = factor(featureGroup,
-                               levels = c("C0",
-                                          "C0 + Registration Features",
-                                          "All ACES Features"),
-                               labels = c('C[0]',
-                                          "C[0]~+~Registration~Features",
-                                          "All~ACES~Features"))) %>%
-  ggplot(aes(x = accuracy,
-             y = modelLabel)) +
-  geom_point(size = 2) +
-  geom_segment(aes(x=.94,xend=accuracy,
-                   y = modelLabel,yend = modelLabel)) +
-  facet_grid(featureGroup~.,scales = "free_y",space = "free",
-             switch = "y",
-             labeller = label_parsed) +
-  theme_bw() +
-  scale_x_continuous(limits = c(.94,1.00),
-                     expand = expansion(0),
-                     labels = scales::percent) +
-  scale_y_discrete(position = "right") +
-  theme(strip.text.y = element_text(size = 7),
-        panel.grid.major.y = element_blank(),
-        axis.title.y = element_blank()) +
-  labs(x = "Accuracy")
-
-ggsave(plot = plt,filename = "figures/trainingAccuracy.png",height  = 4,width = 7)
-knitr::plot_crop("figures/trainingAccuracy.png")
+```{r,fig.align='center',fig.cap='\\label{fig:trainTestAccuracy} We summarize classification accuracy, true negative, and true positive rates for both the training and testing results, represented as gray and black points/lines respectively, for 13 binary classifier models. Our primary interest is the test data results, but visualizing the training data results allows us to assess the generalizability of the models after training. In the first row, we consider a classifier based on a single feature, the Cluster Indicator feature $C_0$, as a baseline. The remaining rows show results from training/testing classifiers based on a decision tree (CART), random forest (RF), and logistic regression (LR) under various feature sets and optimization critieria. The second and third rows show results based on a subset of seven features from the ACES feature set while the fourth and fifth rows show results using all 19 ACES features. We also compare results from optimizing either the overall Accuracy (third and fifth rows) or the area under the Receiver Operating Characterstic curve (AUC, second and fourth rows) during training.',fig.pos="htbp",out.width="\\textwidth"}
+knitr::include_graphics("images/classifResultsPlt_trainTest.png")
 ```
 
-```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification tree (CART) models based on various subsets of the ACES feature set. We consider a classifier based on a single feature, the Cluster Indicator feature $C_0$, as a baseline. The inclusion of other ACES features results in a higher classification accuracy over the baseline with the random forest and logistic regression seeing comparably large gains.',fig.pos="htbp",out.width=".8\\textwidth"}
-knitr::include_graphics("figures/trainingAccuracy.png")
+We first compare the training and testing results across the 13 models and three columns in \autoref{fig:trainTestAccuracy}.
+In general, the true negative rates based on the test data are comparable, if slightly lower, to those of the training data.
+This indicates that the model's ability to distinguish between non-matching comparisons generalizes well to the testing data.
+In contrast, the true positive rates tend to be lower for the test data compared to the training data across the various models, which indicates a potential difference between the training and testing data.
+As we discuss below, there is a single firearm among the 15 test firearms that contributes the majority of false negative (misclassified match) test classifications.
+Despite lower true positive rates, the overall accuracy between the training and testing sets are comparable due to the large class imbalance between matching and non-matching comparisons in both.
+
+In the first row, we consider a baseline classifier based solely on the Cluster Indicator feature $C_0$.
+Namely, if the DBSCAN algorithm finds clusters in the cell-based translations from both directions of a cartridge case comparison, then that pair is classified as a match.
+This is analogous to the classification rule used in \citet{zhang_convergence_2021}.
+The testing classification accuracy associated with this classifier is 94.20% with approximately balanced true negative and true positive rates of 94.73% and 94.16%, respectively.
+
+The second and third rows of \autoref{fig:trainTestAccuracy} summarize results from training the three classifier models on a subset of the full ACES feature set consisting of the Cluster Indicator feature $C_0$ and the six registration-based features summarized in \autoref{tab:registrationFeatures}.
+As discussed in the next section, we consider this subset of features to represent the features used in Congruent Matching Cells methods \citep{song_proposed_2013,zhang_convergence_2021}.
+We distinguish the second and third rows by whether the models were selected to balance the overall true negative and true positive (TN/TP) rates or to maximize the overall accuracy.
+In general, we see that the logistic regression (LR) and random forest (RF) models perform comparable to each other in accuracy, true negative, and true positive rates.
+The decision tree (CART) model performs worse than the than other two models, particularly for the balanced TN/TP models in the second row - although it actually has the largest true positive rate in this case.
+Despite the fact that the models in the second row were selected based on balancing the training true negative and true positive rates, we note that these rates for the test data are not as well-balanced; namely, the true negative rates still tend to be larger than the true positive rates.
+This discrepancy is most notable in the third row, which illustrates how models selected to maximize overall accuracy on imbalanced data err on the side of the majority class.
+Below, we analyze the contribution of various test firearms towards the true positive rates to explore this discrepancy.
+
+The fourth and fifth rows of \autoref{fig:trainTestAccuracy} summarize the classification results based on using all 19 ACES features.
+The conclusions made from comparing these two rows are qualitatively the same as those from comparing the second and third rows.
+Namely, the "maximum accuracy" models have a higher overall test accuracy compared to the "balanced TN/TP" models, albeit at the expense of worse test true positive rates.
+If we compare the "$C_0$ + Registration"-trained models in the second and third vs. the "All ACES"-trained models in the fourth and fifth rows, we see that the addition of the other ACES features leads to improved test true negative and true positive rates (and consequently overall accuracy) with the largest gains observed in the true positive rates.
+
+Across all 13 models, the All ACES-trained, maximum accuracy logistic regression model has the largest overall test accuracy of 99.56% and largest true negative rate of 99.90%.
+The All ACES-trained, balanced TN/TP logistic regression model has the largest test true positive rate of 98.32%.
+For both of these logistic regression models, the random forest model trained under the same conditions is a close second (see \autoref{tab:testDataResults} for more details).
+
+While it's useful to consider the accuracy, true negative, and true positive rates to compare various models, forensic examiners would likely not use the binary classification returned by a model in casework.
+Instead, they would consider the match probability predicted by the model as a similarity score and incorporate it into their decision-making process.
+As such, we also consider the distribution of the predicted match probabilities for matching and non-matching comparisons.
+\autoref{fig:testProbs} shows a dot plot of the predicted match probabilities for the 41,769 non-match and 3,181 match comparisons in the test set.
+Specifically, these probabilities are predicted by the logistic regression model selected to maximize the overall classification accuracy based on the full ACES feature set.
+As we expect, few non-match comparisons have large match probabilities, which justifies the low false positive rate observed in \autoref{fig:trainTestAccuracy}.
+However, there are an unexpected number of matching comparisons that also have a low match probability.
+Further, the density of the match probabilities is concentrated towards the interval's extremes, which may be a characteristic of the logistic regression model or of the underlying test data.
+
+```{r,fig.align='center',fig.cap='\\label{fig:testProbs} A dot plot of the predicted match probabilities for the non-match and match comparisons in the test set based on a logistic regression model. As we expect, the non-match comparisons tend to have a low match probability. However, we see that there are many matching comparisons that also have a low match probability.',fig.pos="htbp",out.width="\\textwidth"}
+knitr::include_graphics("images/testProbs_plt.png")
 ```
 
-Next, we consider the relative importance of the features by fitting 10 replicate random forests using the full ACES feature set with fixed random seeds.
+The left side of \autoref{fig:testProbs_byFirearm} shows the predicted match probabilities for the same matching test comparisons shown in \autoref{fig:testProbs}, but now separated by the 15 firearms comprising the test set.
+We see that the firearm T has far more matching comparisons with low match probabilities compared to the other 14 test firearms.
+This is further underscored by the right side of the \autoref{fig:testProbs_byFirearm}, which shows the ratio of misclassifications to total comparisons for every pair of test firearms based on the same logistic regression model used in \autoref{fig:testProbs}.
+The main diagonal shows the false negative misclassifications while the off-diagonal shows the false positives.
+For clarity, we use blank tiles for comparisons where 0 misclassifications occurred.
+We see that the false negative rate for firearm T of 45.9% far outweighs the error rates from other firearm pairs.
+Further, the 161 false negative firearm T comparisons comprise about 71% of all of the 226 false negative test comparisons and 5% of the 3,181 matching test comparisons.
+In sum, the model performs distinctly worse at identifying matching comparisons from firearm T compared to the other firearms, which partially explains the lower test true positive rates noted in \autoref{fig:trainTestAccuracy}.
+Upon visual inspection of the scans from firearm T, we noted a lack of consistent markings on their surfaces that is not shared with scans from the other test firearms.
+
+```{r,fig.align='center',fig.cap='\\label{fig:testProbs_byFirearm} (Left) A dot plot of the predicted match probabilities for the match comparisons in the test set based on a logistic regression model, separated by firearm. We see that firearm T has more matching comparisons with low match probabilities than the other test firearms. (Right) Misclassifications divided by total number of pairwise comparisons for each pair of test firearms based on the same logistic regression model. For clarity, we do not show comparisons with 0 misclassifications. We note that the proportion of misclassified matching comparisons from firearm T of 45.9\\% is much higher than that of other comparisons.',fig.pos="htbp",out.width="\\textwidth"}
+knitr::include_graphics("images/misclassifPlt.png")
+```
+
+
+
+Finally, we consider the relative importance of the 19 ACES features by fitting 10 replicate random forests using the full ACES feature set with fixed random seeds.
 For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model \citep{hastie_elements_2008}.
 A larger decrease in the Gini Index corresponds with higher importance.
 \autoref{fig:rfVarImpPlt} shows the distribution of the mean Gini Index decrease for the 19 ACES features.
-Noting the log scale on which these points are plotted, we see that the cell-based similarities vs. differences ratio $\bar{r}_{cell}$ is the most important variable followed by the cluster indicator $C_0$ and cell-based correlation $\overline{cor}_{\text{cell}}$ approximately tied for second.
-Interestingly, we note that the top three features consist of one feature from each of the three feature groups defined in the Methods section.
-
-```{r,eval=TRUE,include=FALSE}
-load("data/varImportanceData.RData")
-
-axisLabels <- c(expression(atop(NA,
-                                atop(textstyle('Cell-Based Neighborhood'),
-                                     textstyle('                 Size SD'~bar(s)[cell*','~'|'*S*'|'])))), 
-                expression(atop(NA,
-                                atop(textstyle("Cell-Based Correlation"),
-                                     textstyle('                        SD'~s[cor])))), 
-                # expression(atop(NA,
-                #                 atop(textstyle('Cell-Based Differences'),
-                #                      textstyle('Correlation SD'~)))),
-                expression(atop(NA,
-                                atop(textstyle('Average Cell-Based Differences'),
-                                     textstyle('                  Correlation'~bar(cor)[cell*','~'diff'])))),
-                expression(atop(NA,
-                                atop(textstyle('Average Cell-Based Neighborhood'),
-                                     textstyle('                                       Size'~bar('|'*S*'|')[full])))),
-                expression(atop(NA,
-                                atop(textstyle('Full-Scan Differences'),
-                                     textstyle('Correlation'~cor[full*','~diff])))),
-                expression(atop(NA,
-                                atop(textstyle('Full-Scan Neighborhood'),
-                                     textstyle("                Size SD"~s[full*','~'|'*S*'|'])))),
-                expression('Cell-Based Rotation SD'~s[theta^{"*"}]),
-                expression(atop(NA,
-                                atop(textstyle('Estimated Translation'),
-                                     textstyle('          Difference'~Delta[trans])))),
-                expression('Cluster Size'~C),
-                expression(atop(NA,
-                                atop(textstyle('Cell-Based Similarities vs.'),
-                                     textstyle('Differences Ratio SD'~s[cell*','~r])))),
-                expression(atop(NA,
-                                atop(textstyle('Average Full-Scan Neighborhood'),
-                                     textstyle('                                      Size'~bar('|'*S*'|')[full])))),
-                expression(atop(NA,
-                                atop(textstyle('Full-Scan Similarities vs.'),
-                                     textstyle("    Differences Ratio"~r[full])))),
-                expression(atop(NA,
-                                atop(textstyle('Estimated Rotation'),
-                                     textstyle('          Difference'~Delta[theta])))),
-                expression('Full-Scan Correlation'~cor[full]),
-                expression(atop(NA,
-                                atop(textstyle('Cell-Based Vertical'),
-                                     textstyle('     Translation SD'~s[m^{'*'}])))),
-                expression(atop(NA,
-                                atop(textstyle('Cell-Based Horizontal'),
-                                     textstyle('     Translation SD'~s[n^{'*'}])))),
-                expression(atop(NA,
-                                atop(textstyle('Average Cell-Based'),
-                                     textstyle('      Correlation'~bar(cor)[cell])))),
-                expression('Cluster Indicator'~C[0]),
-                expression(atop(NA,
-                                atop(textstyle('Average Cell-Based Similarities'),
-                                     textstyle('          vs. Differences Ratio'~bar(r)[cell])))))
-
-plt <-  varImportanceData %>%
-  filter(varName != "Cell-Based Differences Correlation SD") %>%
-  ggplot(aes(x = reorder(varName,varImportance,FUN = mean),y = varImportance)) +
-  geom_jitter(size=.7,width = .1,height = 0) +
-  coord_flip() +
-  theme_bw() +
-  labs(y = "Mean Gini Index Decrease (Log Scale)") +
-  scale_x_discrete(labels = axisLabels) +
-  scale_y_log10(minor_breaks = c(seq(30,100,by = 10),seq(100,1000,by = 100)),
-                breaks = c(30,100,300,1000),
-                labels = c("30","100","300","1000"),
-                limits = c(NA,NA)) +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_text(hjust = .95,
-                                   vjust = .35))
-
-ggsave(plot = plt,filename = "figures/varImportanceBoxplot.png",width = 8,height = 7)
-knitr::plot_crop("figures/varImportanceBoxplot.png")
-```
+Noting the log scale on which these points are plotted, we see that the cell-based similarities vs. differences ratio $\bar{r}_{cell}$ is the most important variable followed by the cluster size $C$ and the cell-based correlation $\overline{cor}_{\text{cell}}$.
+Interestingly, we note that these top three features consist of one feature from each of the three feature groups defined in the Methods section.
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:rfVarImpPlt} Variable importance measures from fitting a random forest to the training data set, repeated 10 times under various random seeds. The top three features consist of one feature from each of the three feature groups defined in the Methods section. Points are plotted on a log scale and vertically jittered for visibility.",out.width=".9\\textwidth"}
-knitr::include_graphics("figures/varImportanceBoxplot.png")
+knitr::include_graphics("images/varImpPlt.png")
 ```
 
 
-## Testing Results
+<!-- ## Training Results -->
 
-For each of the 44,850 cartridge case pairs in the testing data set, we use each model to predict whether the pair is a match or non-match.
-An error occurs when this prediction does not match the ground-truth nature of the cartridge case pair.
-\autoref{fig:testingAccuracy} summarizes the error rates for each method.
-The Accuracy is the overall percentage of correct classifications.
-The True Negative and True Positive rates are the percentage of correctly-classified non-match and match pairs, respectively.
+<!-- \autoref{fig:trainingAccuracy} shows the training-estimated accuracy, true negative, and true positive rates for various binary classifiers. -->
+<!-- In the first row, we consider a baseline classifier based solely on the Cluster Indicator feature $C_0$. -->
+<!-- Namely, if the DBSCAN algorithm finds clusters in the cell-based translations from both directions of a cartridge case comparison, then that pair is classified as a match. -->
+<!-- This is analogous to the classification rule used in \citet{zhang_convergence_2021}. -->
+<!-- The training classification accuracy associated with this classifier is 94.2% with approximately balanced true negative and true positive rates of 94.7% and 94.2%, respectively. -->
 
-We see that the testing accuracy across models and feature groups is similar to that of the training results in \autoref{fig:trainingAccuracy}.
-Although the $C_0$ baseline classifier yields the highest true negative rate of 99.7%, the low true positive rate of 70.3% indicates a tendency to overclassify pairs as non-matches.
-Compared to the classifier based solely on the Cluster Indicator feature $C_0$, the inclusion of other ACES features markedly improves classification accuracy except for the classification tree (CART) model.
-Again, the random forest and logistic regression models perform comparably with the highest overall accuracy of 99.1% achieved by the the logistic regression model using the full ACES feature set.
-Compared to the training results, the CART model does yield higher accuracy than the baseline classifier.
-This indicates potential overfitting of the CART model to which the random forest and logistic regression models are more robust.
-The logistic regression model using the full ACES feature set provides the best balance of true negative and true positive rates at 99.72% and 90.2%, respectively.
+<!-- The second and third rows of \autoref{fig:trainingAccuracy} summarize results from training the three classifier models on a subset of the full ACES feature set consisting of the Cluster Indicator feature $C_0$ and the six registration-based features summarized in \autoref{tab:registrationFeatures}. -->
+<!-- As discussed in the next section, we consider this subset of features to represent the features used in Congruent Matching Cells methods \citep{song_proposed_2013,zhang_convergence_2021}. -->
+<!-- We distinguish the second and third rows by whether the AUC or accuracy was used as an optimization metric. -->
+<!-- We see in the second row that the logistic regression (LR) and random forest (RF) models perform comparably well with overall accuracies of around 97%. -->
+<!-- The classification tree (CART) model lags behind with an accuracy of around 94%, which is a pattern that persists in the other rows. -->
+<!-- We also note that the true negative and true positive rates for these three models are approximately equal to each other, which is the effect of the -->
 
-```{r,include=FALSE}
-testAccuracy <- readRDS("data/testAccuracy.rds")
+<!-- The second and third facets of \autoref{fig:trainingAccuracy} show the accuracy associated with the three classifiers if trained only on an expanding feature set. -->
+<!-- The second facet shows the training accuracy using $C_0$ and the registration-based features. -->
+<!-- We see that the random forest (RF) model has the highest associated accuracy of 98.5%, although the logistic regression (LR) model is a close second with an accuracy of 98.4%. -->
+<!-- This demonstrates the relative importance of the registration-based features. -->
+<!-- The third facet shows the the training accuracy using all 19 ACES features. -->
+<!-- Again, the random forest and logistic regression models perform comparably: 99.162% and 99.157% accuracy, respectively. -->
+<!-- The classification tree (CART) model lags behind the other two models in both scenarios. -->
 
-testAccuracy_plt <- testAccuracy %>%
-  mutate(Accuracy = 1 - error,
-         truePos = 1 - falseNeg,
-         trueNeg = 1 - falsePos) %>%
-  select(modelLabel,featureGroup,Accuracy,truePos,trueNeg) %>%
-  pivot_longer(cols = 3:5,names_to = "errorType") %>%
-  mutate(errorType = ifelse(errorType == "trueNeg","True~Neg.~Rate",
-                            ifelse(errorType == "truePos","True~Pos.~Rate",
-                                   "Accuracy"))) %>%
-  mutate(xstart = ifelse(errorType == "True~Pos.~Rate",
-                         min(value) - .05*min(value),
-                         .935),
-         featureGroup = factor(featureGroup,
-                               levels = c("C0",
-                                          "C0 + Registration Features",
-                                          "All ACES Features"),
-                               labels = c('C[0]',
-                                          "C[0]~+~Registration~Features",
-                                          "All~ACES~Features")))
-plt <-  testAccuracy_plt %>%
-  ggplot(aes(x = value,y = modelLabel)) +
-  geom_point(size = 2) +
-  geom_segment(aes(x=xstart,
-                   xend=value,
-                   y=modelLabel,
-                   yend=modelLabel)) +
-  facet_grid(rows = vars(featureGroup),
-             cols = vars(errorType),
-             labeller = label_parsed,
-             scales = "free",
-             space = "free_y",
-             switch = "y") +
-  theme_bw() +
-  scale_x_continuous(expand = expansion(c(0,.04)),
-                     limits = c(NA,1),
-                     labels = scales::percent,
-                     breaks = scales::breaks_pretty(n = 5)) +
-  scale_y_discrete(labels = scales::label_wrap(width = 20),
-                   position = "right") +
-  labs(y = "Model Type") +
-  theme(strip.text.y = element_text(size = 7),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(size = 6),
-        axis.text.y = element_text(size = 7))
+<!-- ```{r,fig.align='center',fig.cap='\\label{fig:trainingAccuracy} Training classification accuracy for random forest (RF), logistic  regression (LR), and classification tree (CART) models based on various subsets of the ACES feature set. We consider a classifier based on a single feature, the Cluster Indicator feature $C_0$, as a baseline. The inclusion of other ACES features results in a higher classification accuracy over the baseline with the random forest and logistic regression seeing comparably large gains.',fig.pos="htbp",out.width="\\textwidth"} -->
+<!-- knitr::include_graphics("images/trainResults_plt.png") -->
+<!-- ``` -->
 
-ggsave(plot = plt,filename = "figures/testAccuracy.png",height = 4,width = 7)
-```
 
-```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, true negative rate, and true positive rate faceted for three trained classifier models compared a baseline classifier based on the Cluster Indicator feature $C_0$. The baseline classifier tends to overclassify pairs as non-matches as evidenced by the high true negative, yet low true positive rates. For the Random Forest (RF) and Logistic Regression (LR) mdoels, the inclusion of other ACES features clearly improves the true positive rate at the expense of an only slightly lower true negative rate. The true negative rate of the classification tree (CART) model suffers more for a comparatively smaller increase in true positives making it the lowest performing model overall."}
-knitr::include_graphics("figures/testAccuracy.png")
-```
+<!-- ## Testing Results -->
+
+<!-- For each of the 44,850 cartridge case pairs in the testing data set, we use each model to predict whether the pair is a match or non-match. -->
+<!-- An error occurs when this prediction does not match the ground-truth nature of the cartridge case pair. -->
+<!-- \autoref{fig:testingAccuracy} summarizes the error rates for each method. -->
+<!-- The Accuracy is the overall percentage of correct classifications. -->
+<!-- The True Negative and True Positive rates are the percentage of correctly-classified non-match and match pairs, respectively. -->
+
+<!-- We see that the testing accuracy across models and feature groups is similar to that of the training results in \autoref{fig:trainingAccuracy}. -->
+<!-- Although the $C_0$ baseline classifier yields the highest true negative rate of 99.7%, the low true positive rate of 70.3% indicates a tendency to overclassify pairs as non-matches. -->
+<!-- Compared to the classifier based solely on the Cluster Indicator feature $C_0$, the inclusion of other ACES features markedly improves classification accuracy except for the classification tree (CART) model. -->
+<!-- Again, the random forest and logistic regression models perform comparably with the highest overall accuracy of 99.1% achieved by the the logistic regression model using the full ACES feature set. -->
+<!-- Compared to the training results, the CART model does yield higher accuracy than the baseline classifier. -->
+<!-- This indicates potential overfitting of the CART model to which the random forest and logistic regression models are more robust. -->
+<!-- The logistic regression model using the full ACES feature set provides the best balance of true negative and true positive rates at 99.72% and 90.2%, respectively. -->
+
+<!-- ```{r,fig.align='center',out.width="\\textwidth",fig.cap = "\\label{fig:testingAccuracy} Testing classification accuracy, true negative rate, and true positive rate faceted for three trained classifier models compared a baseline classifier based on the Cluster Indicator feature $C_0$. The baseline classifier tends to overclassify pairs as non-matches as evidenced by the high true negative, yet low true positive rates. For the Random Forest (RF) and Logistic Regression (LR) mdoels, the inclusion of other ACES features clearly improves the true positive rate at the expense of an only slightly lower true negative rate. The true negative rate of the classification tree (CART) model suffers more for a comparatively smaller increase in true positives making it the lowest performing model overall."} -->
+<!-- knitr::include_graphics("images/testResults_plt.png") -->
+<!-- ``` -->
 
 # Discussion
 
 We use a $C_0$-based classifier as a baseline because it is analogous to the classification rule proposed in \citet{zhang_convergence_2021}.
-Similarly, the cell-based registration features are the same as those used in \citet{song_proposed_2013}.
+Similarly, the cell-based registration features are based on the the same cell-based comparison procedure used in \citet{song_proposed_2013} and summarized in \autoref{alg:cellComparison}.
 Together, $C_0$ and the registration-based features can viewed as a fusion of previously-proposed cartridge case comparison algorithms.
-This is why we consider separate classifiers based on these features for the training and testing results shown in \autoref{fig:trainingAccuracy} and \autoref{fig:testingAccuracy}.
+This is why we consider separate classifiers based on these features for the training and testing results shown in \autoref{fig:testProbs_byFirearm}.
 \autoref{tab:previousWorkComparison} summarizes the similarities between the ACES algorithm and the algorithms proposed in \citet{zhang_convergence_2021} and \citet{song_proposed_2013}.
-A key difference between ACES and both of the previous algorithms is the training procedure used to optimize model parameters.
+Another key difference between ACES and both of the previous algorithms is the training/testing procedure used to optimize and validate model parameters.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -1161,23 +1092,25 @@ Original Paper & Similarities to ACES & Original Use & ACES Use \\
 \end{table}
 ```
 
-\autoref{tab:classifMethodComparison} shows the test classification error rates of the Congruent Matching Cells (CMC) algorithm proposed in \citet{song_proposed_2013}, the $C_0$-based classifier like the one proposed in \citet{zhang_convergence_2021}, and the ACES logistic regression model.
+\autoref{tab:classifMethodComparison} shows the test classification error rates of the Congruent Matching Cells (CMC) algorithm proposed in \citet{song_proposed_2013}, the $C_0$-based classifier like the one proposed in \citet{zhang_convergence_2021}, and the two ACES logistic regression models selected to balance the true negative and true positive rates and maximize the classification accuracy.
 We obtained the CMC results by applying the implementation available in the cmcR R package \citep{cmcR} on the same test data set used in the Results section.
-We used the optimization procedure described in [Zemmels et al. (2023)] to select CMC parameters.
-The $C_0$-based error rates are the same as those shown in \autoref{fig:testingAccuracy}.
-The ACES logistic regression model performs considerably better than the other classifiers on this test data set, most notably in identifying matching cartridge case pairs as evidenced by the small false negative error rate.
+We used the optimization procedure described in \citet{Zemmels2023} to select CMC parameters.
+The $C_0$-based error rates are the same as those shown in the first row of \autoref{fig:trainTestAccuracy}.
+The ACES logistic regression models perform better than the other classifiers on this test data set, most notably when compared to the CMC method in identifying matching cartridge case pairs.
+Interestingly, the $C_0$-based classifier has a lower false negative error rate compared to the All ACES-trained, maximum accuracy logistic regression model, although it has a much higher false positive rate.
 
 ```{=tex}
 \begin{table}[htbp]
 \centering
 \begin{tabular}{l r r r}
-Classification Method & Error (\%) & False Positive (\%) & False Negative (\%)\\
+Classification Method & Error (\%) & False Negative (\%) & False Positive (\%) \\
 \hline
-CMC method & 2.8 & 0.48 & 33.9 \\
-Only $C_0$ feature & 2.1 & 0.03 & 29.7 \\
-ACES Logistic Regression & 0.9 & 0.28 & 9.8
+CMC method & 2.6 & 33.8  & 0.3 \\
+Only $C_0$ feature & 5.8 & 5.3  & 5.8\\
+ACES LR, Balanced TN/TP & 2.1 & 4.4  & 2.0 \\
+ACES LR, Max. Accuracy & 0.6 & 7.4 & 0.1
 \end{tabular}
-\caption{Testing classification error, false positive, and false negative rates for three types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}.}
+\caption{Testing classification error, false positive, and false negative rates for four types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}. The last two rows show results from the Logistic Regression classifier trained on the all 19 ACES features under two optimization criteria - balancing the true negative and true positive rates or maximizing the overall classifciation accuracy on the training data set.}
 \label{tab:classifMethodComparison}
 \end{table}
 ```
@@ -1193,28 +1126,34 @@ Comparison algorithms like ACES will inevitably be used to augment the opinion o
 As such, it is important that forensic examiners are able to interpret and explain the results of a comparison algorithm.
 The visual diagnostic features are useful for explaining the behavior of the algorithm in a manner that aligns with more traditional identification theory.
 
-Our intention in fitting three classification models across various feature sets was to explore each model's strengths and weaknesses.
-A critical step in putting the ACES algorithm into practice is to settle on a single model.
+Our intention in fitting three classification models using different feature sets and optimization criteria was to explore each model's strengths and weaknesses.
+A critical step in putting the ACES algorithm into practice will be to settle on a single model.
 Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy on available test data.
-Ethically however, we might favor the model that makes the fewest false positive classifications since misclassifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+This turns out to also be the model with the smallest false positive rate, the All ACES-trained, maximum accuracy logistic regression model.
+Ethically, we might favor this model since misclassifying a truly non-matching cartridge case pair may incriminate an innocent individual.
+However, we see that using other optimization criteria, such as balancing the true negative and true positive rates, leads to different outcomes.
+Perhaps there is a happier medium between these two optimization criteria that leads to a model with a relatively small false positive error rate, yet 
+We believe that this is ultimately a decision to be made with the input of others in forensic and legal communities. 
 In our case, the ACES logistic regression model yields both the highest accuracy and lowest false positive rate on the test set, but this may not generalize to other cartridge cases.
-Further, there is precedent for random forest models to be robust classifiers for forensic evidence \citep{aoas,Park2019}
+There is precedent for random forest models to be robust classifiers for forensic evidence \citep{aoas,Park2019}.
+We need to apply the ACES algorithm to other types of evidence, such as using different ammunition or firearm makes/models, to better understand the algorithm's strengths and weaknesses.
 
 Another aspect to consider when choosing a model is interpretability and explainability.
-If an algorithm is put into practice, then evidentiary conclusions derived from the algorithm's output will inevitably be presented to a non-expert judge or jury.
+If an algorithm is applied in forensic casework, then evidentiary conclusions derived from the algorithm's output will inevitably be presented to a non-expert judge or jury.
 More interpretable models are easier to understand, and therefore should be preferred.
 The classification behavior of the logistic regression and classification tree models are arguably easier to explain than the random forest model.
-For example, the logistic regression model parameters can be intuitively explained in terms of the estimated increase in odds of a match.
-Paired with its comparable performance to the random forest, we suggest using the logistic regression model with all 19 ACES features as the new standard to which other proposed algorithms are compared.
-However, we believe that the ultimate decision of which algorithm will be put into practice needs to be made with the input of the wider forensic and legal communities.
+For example, the logistic regression model parameters can be understood in terms of the estimated increase in odds of a match.
+Paired with its comparable performance to the random forest, we suggest using the logistic regression model with all 19 ACES features as the new standard to which other proposed similarity scoring algorithms are compared.
+However, we emphasize that the ultimate decision of which algorithm will be put into practice needs to be made with the input of the wider forensic and legal communities.
 
 # Conclusion
 
 In this paper, we introduced the Automatic Cartridge Evidence Scoring (ACES) algorithm to measure the similarity between two fired cartridge cases based on their breech face impressions.
 In particular, we defined a set of 19 similarity features and used these features to train and test classifier models.
-We validated our algorithm on a set of 510 cartridge cases - the largest validation study of a cartridge case comparison algorithm to-date.
-Compared to predominant algorithms, the ACES algorithm reduces the classification error rate by over 50% on our test data set.
+We validated our algorithm on a set of 510 cartridge cases - the largest validation study of a cartridge case similarity scoring algorithm to-date.
+Compared to predominant algorithms like the CMC algorithm described in \citet{song_proposed_2013}, the ACES algorithm reduces the classification error rate by over 75% on our test data set.
 We propose a logistic regression classifier trained on the ACES feature set as a new benchmark to which future proposed methods are compared.
+We believe that the ACES algorithm, which is not designed to return "inconclusive" classifications, complements the results from the   
 
 Before the ACES algorithm can be put into practice, we must devise new stress-tests, using new ammunition and firearm combinations, to assess its robustness.
 A variety of factors, such as make/model and wear, may affect the discriminative power of the 19 features defined in this paper.
@@ -1389,7 +1328,7 @@ The Cross-Correlation Theorem provides an equivalent expression for the CCF:
 \end{align*}
 where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse discrete Fourier transforms, respectively, $\overline{\mathcal{F}(A)}$ is the complex conjugate, and $\odot$ is an element-wise (Hadamard) product \citep{fft_brigham}.
 We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
-The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably [cite Tukey].
+The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably \jz{[cite Tukey]}.
 
 We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
 Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
@@ -1485,7 +1424,7 @@ The standard deviation of the cell-based registrations discriminate more between
 \jz{[More to say here?]}
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:registrationDensities} Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
-knitr::include_graphics("images/registrationFeatureDensities.png")
+knitr::include_graphics("images/featureDensity_registration.png")
 ```
 
 ## DBSCAN Algorithm Details
@@ -1520,7 +1459,7 @@ It's difficult to see in the plots, but the $C$ value for this non-match pair is
 As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:densityDistributions} Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left. This explains the near absence of non-matching comparisons from Cluster Size and Estimated Translation Difference plots. Whether a cluster is identified for a particular comparison strongly predicts whether it is a match or a non-match, which justifies the inclusion of the cluster indicator feature $C_0$.'}
-knitr::include_graphics("images/densityFeatureDistributions.png")
+knitr::include_graphics("images/featureDensity_densityBased.png")
 ```
 
 ## Visual Diagnostic Details
@@ -1596,10 +1535,83 @@ As expected, matching comparisons at the full-scan and cell-based levels tend to
 
 
 ```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:visualDiagnosticDensities} Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
-knitr::include_graphics("images/visualDiagnosticDensities.png")
+knitr::include_graphics("images/featureDensity_visualDiag.png")
 ```
 
 ## Model-Specific Results
+
+\autoref{tab:trainDataResults} summarizes the accuracy, true positive, and true negative rates based on the training data for the 13 binary classifier models.
+We see that the Logistic Regression (LR) and Random Forest (RF) models perform comparably, particularly having the exact same True Negative rate in the last two rows of the table.
+The CART model performs consistently worse compared to the other two models.
+
+```{r}
+# from: https://stackoverflow.com/a/65844319/14000041
+linesep<-function(x,y=character()){
+  if(!length(x))
+    return(y)
+  linesep(x[-length(x)], c(rep('',x[length(x)]-1),'\\addlinespace',y))  
+}
+
+structure(list(Model = structure(c(1L, 2L, 2L, 2L, 2L, 3L, 3L, 
+3L, 3L, 4L, 4L, 4L, 4L), levels = c("Baseline", "CART", "RF", 
+"LR"), class = "factor"), `Feature Set` = structure(c(1L, 2L, 
+2L, 3L, 3L, 2L, 2L, 3L, 3L, 2L, 2L, 3L, 3L), levels = c("$C_0$", 
+"$C_0$ + Registration", "All ACES"), class = "factor"), Criterion = structure(c(1L, 
+2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L), levels = c("", 
+"Max. AUC", "Max. Accuracy"), class = "factor"), Accuracy = c("94.67", 
+"94.32", "98.11", "97.37", "98.56", "97.09", "98.90", "98.34", 
+"99.50", "97.33", "98.93", "98.25", "\\textbf{99.56}"), `True Positive` = c("97.32", 
+"97.68", "91.09", "87.54", "86.86", "97.09", "93.09", "\\textbf{98.32}", 
+"95.91", "97.32", "93.59", "98.23", "96.50"), `True Negative` = c("94.37", 
+"93.95", "98.89", "98.47", "99.87", "97.09", "99.55", "98.34", 
+"\\textbf{99.90}", "97.33", "99.53", "98.25", "\\textbf{99.90}")), class = "data.frame", row.names = c(NA, 
+-13L))%>%
+  select(`Feature Set`,Criterion,Model,Accuracy,`True Negative`,`True Positive`) %>%
+  arrange(`Feature Set`,Criterion,Model) %>%
+  knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the training data for the 13 binary classifier models. This table shows a numeric summary of the results shown in [Figure]. We bold the largest values in each column for emphasis.",
+               label = "trainDataResults",
+               format = "latex",
+               escape = FALSE,
+               align = c("l","l","l",
+                         "r","r","r"),
+               linesep = linesep(c(1,3,3,3,3)),
+               booktabs=TRUE)
+```
+
+
+
+\autoref{tab:testDataResults} summarizes the accuracy, true positive, and true negative rates based on the test data for the 13 binary classifier models.
+We see that the Logistic Regression (LR) model performs slightly better than the Random Forest (RF) model in most cases while the CART model consistently lags behind the other two. 
+The true positive rates for the test data are noticeably lower to those for the training data summarized in \autoref{tab:trainDataResults}, although the true negative rates are similar.
+
+```{r}
+structure(list(Model = structure(c(1L, 2L, 2L, 2L, 2L, 3L, 3L, 
+3L, 3L, 4L, 4L, 4L, 4L), levels = c("Baseline", "CART", "RF", 
+"LR"), class = "factor"), `Feature Set` = structure(c(1L, 2L, 
+2L, 3L, 3L, 2L, 2L, 3L, 3L, 2L, 2L, 3L, 3L), levels = c("$C_0$", 
+"$C_0$ + Registration", "All ACES"), class = "factor"), Criterion = structure(c(1L, 
+2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L), levels = c("", 
+"Max. AUC", "Max. Accuracy"), class = "factor"), Accuracy = c("94.20", 
+"93.82", "98.21", "96.80", "98.88", "96.79", "98.81", "97.55", 
+"99.34", "96.97", "98.78", "97.86", "\\textbf{99.38}"), `True Positive` = c("94.73", 
+"95.16", "88.22", "88.09", "86.73", "93.93", "89.81", "95.42", 
+"92.44", "94.03", "90.10", "\\textbf{95.59}", "92.63"), `True Negative` = c("94.16", 
+"93.73", "98.94", "97.45", "99.78", "97.00", "99.48", "97.71", "99.85", 
+"97.18", "99.42", "98.03", "\\textbf{99.88}")), class = "data.frame", row.names = c(NA, 
+-13L)) %>%
+  select(`Feature Set`,Criterion,Model,Accuracy,`True Negative`,`True Positive`) %>%
+  arrange(`Feature Set`,Criterion,Model) %>%
+  knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the test data for the 13 binary classifier models. This table shows a numeric summary of the results shown in [Figure]. We bold the largest values in each column for emphasis.",
+               label = "testDataResults",
+               format = "latex",
+               escape = FALSE,
+               align = c("l","l","l",
+                         "r","r","r"),
+               linesep = linesep(c(1,3,3,3,3)),
+               booktabs=TRUE)
+```
+
+
 
 \jz{[Write full logistic regression model here]}
 
@@ -1632,6 +1644,4 @@ The second line is the estimated probability that an observation is a non-match 
 The third line is the percentage of all observations that fall into the node.
 We see that splits are made on the three variables that are ranked as most important in \autoref{fig:rfVarImpPlt}; namely, $C_0$, $\overline{cor}_{\text{cell}}$, and $s_{m^*}$.
 
-```{r,out.width=".8\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:trainedCART} Trained Classification and Regression Tree model."}
-knitr::include_graphics("images/trainedCART_labeled.png")
-```
+\jz{[Figure of fitted CART model here.]}
