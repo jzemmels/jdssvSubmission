@@ -144,7 +144,7 @@ We conclude with our thoughts on how cartridge case comparison algorithms should
 
 ## Previous Work
 
-Recent proposals for automatic cartridge case comparison algorithms borrow from image processing and computer vision techniques.
+Many recent proposals for automatic cartridge case scoring algorithms borrow from image processing and computer vision techniques.
 For example, \citet{vorburger_surface_2007} proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
 The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
 Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the \emph{registration}, between the two scans; simply choose the rotation/translation at which the CCF is maximized.
@@ -526,8 +526,8 @@ From the full-scan and cell-based registration procedures, we obtain six feature
 $cor_{\text{full}}$ & Full-scan pairwise-complete correlation \\
 $\overline{cor}_{\text{cell}}$ & Average cell-based pairwise-complete correlation \\
 $s_{cor}$ & Standard deviation of the cell-based pairwise-complete correlations \\
-$s_{m^*}$ & Standard deviation of the cell-based vertical translations (pixels) \\
-$s_{n^*}$ & Standard deviation of the cell-based horizontal translations (pixels) \\
+$s_{m^*}$ & Standard deviation of the cell-based vertical translations (in microns) \\
+$s_{n^*}$ & Standard deviation of the cell-based horizontal translations (in microns) \\
 $s_{\theta^*}$ & Standard deviation of the cell-based rotations (degrees)
 \end{tabular}
 \caption{Six similarity features based on registering full scans and cells.}
@@ -689,7 +689,7 @@ For truly matching cartridge case pairs, we expect $C$ to be large, $C_0$ to be 
 $C$ & Average DBSCAN cluster size \\
 $C_0$ & DBSCAN cluster indicator \\
 $\Delta_\theta$ & Absolute sum of the density-estimated rotations (degrees) \\
-$\Delta_{\text{trans}}$ & Root sum of squares of the cluster-estimated translations (pixels)
+$\Delta_{\text{trans}}$ & Root sum of squares of the density-estimated translations (in microns)
 \end{tabular}
 \caption{Four similarity features based on the density-based clustering procedure.}
 \label{tab:dbscanFeatures}
@@ -736,7 +736,7 @@ We calculate the \textbf{average cell-based differences correlation} across all 
 <!-- s_{cor_{diff,\cdot}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{diff,t} - \overline{cor}_{diff,\cdot})^2. -->
 
 Next, we consider features based on the elements of the Boolean $cond$ matrix.
-Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| > \tau$ visualized in black-and-white in the middle with filtered elements, whose $cond$ value is $TRUE$, shown in white.
+Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| \leq \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the associated $cond$ matrix $|A - B^*| > \tau$ visualized in black-and-white in the middle with filtered elements, whose $cond$ value is $TRUE$, shown in white.
 
 We first calculate the ratio between such a $cond$ matrix and its complement.
 For $d = A$, we consider the $cond$ matrices $|A - B^*| \leq \tau$ and $|A - B^*| > \tau$.
@@ -893,10 +893,10 @@ $\overline{cor}_{\text{cell},\text{diff}}$ & Average cell-wise differences corre
 $r_{\text{full}}$ & Full-scan similarities vs. differences ratio \\
 $\bar{r}_{\text{cell}}$ & Average cell-based similarities vs. differences ratio \\
 $s_{\text{cell}, r}$ & Standard deviation of the cell-based similarities vs. differences ratio \\
-$\overline{|S|}_{\text{full}}$ & Average full-scan neighborhood size \\
-$s_{\text{full},|S|}$ & Standard deviation of the full-scan neighborhood sizes \\
-$\overline{|S|}_{\text{cell}}$ & Average cell-wise neighborhood sizes \\
-$\bar{s}_{\text{cell},|S|}$ & Average standard deviation of the cell-wise neighborhood sizes
+$\overline{|S|}_{\text{full}}$ & Average full-scan neighborhood size (in microns) \\
+$s_{\text{full},|S|}$ & Standard deviation of the full-scan neighborhood sizes (in microns) \\
+$\overline{|S|}_{\text{cell}}$ & Average cell-wise neighborhood sizes (in microns) \\
+$\bar{s}_{\text{cell},|S|}$ & Average standard deviation of the cell-wise neighborhood sizes (in microns)
 \end{tabular}
 \caption{Nine similarity features calculated based on visual diagnostics.}
 \label{tab:visualDiagnosticFeatures}
@@ -924,13 +924,8 @@ Each of these models predicts the probability that a pair of cartridge cases mat
 Then, the model classifies the pair as a match or non-match depending on whether the match probability exceeds a set threshold.
 On top of the tunable parameters of each model, we treat this threshold as a parameter to be optimized.
 
-We consider different optimization criteria for training each classifier.
-One criterion prescribes selecting the model that maximizes the overall classification accuracy, or the proportion of correct classifications, on the training data.
-For this criterion, we select the match probability threshold that maximizes the overall classification accuracy.
-However, models that are trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class \citep{Fernndez2018}, which in our case are non-matches.
-We will see in the next section that models trained to maximize accuracy on our training data set indeed exhibit this behavior.
-
-An alternative optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values \citep{James2013}.
+Models that are trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class \citep{Fernndez2018}, which in our case are non-matches.
+An optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values \citep{James2013}.
 The model that maximizes this area, commonly abbreviated AUC, is one that performs best under a variety of threshold values relative to the other models - this consistency is a desired trait.
 Using the ROC curve, we choose the match probability threshold that balances the true positive and true negative rates on the training data.
 
@@ -1301,7 +1296,7 @@ Furthermore, information such as relative contributions of the authors may be ad
 
 ## Registration Procedure Details
 
-In our application, a registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
+A registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
 Under this transformation, the index $i,j$ maps to a new index $i^*,j^*$ by: \begin{align*}
 \begin{pmatrix} j^* \\ i^* \end{pmatrix} =
 \begin{pmatrix} n \\ m \end{pmatrix} +
@@ -1328,7 +1323,7 @@ The Cross-Correlation Theorem provides an equivalent expression for the CCF:
 \end{align*}
 where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse discrete Fourier transforms, respectively, $\overline{\mathcal{F}(A)}$ is the complex conjugate, and $\odot$ is an element-wise (Hadamard) product \citep{fft_brigham}.
 We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
-The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably \jz{[cite Tukey]}.
+The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably \citep{CooleyTukey}.
 
 We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
 Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
@@ -1343,8 +1338,9 @@ The registration procedure is outlined in \autoref{alg:registration}.
 We refer to the matrix that is rotated as the "target."
 The result is the estimated registration of the target matrix to the "source" matrix.
 
+It is common for cartridge case scans to contain many missing values.
+For example, the gray pixels in \autoref{fig:matchPair} represent structural values in the scan.
 The Fast Fourier Transform algorithm used in \autoref{alg:registration} does not permit missing values in $A$ or $B$.
-It is common for cartridge case scans to contain many missing values - the gray regions in \autoref{fig:matchPair} represent structural values in the scan.
 Thus, when calculating the CCF we impute these missing values with the average non-missing value in the scan.
 To measure the similarity between $A$ and $B$ while accounting for missingness, we calculate the correlation between the non-missing intersection of the aligned scans.
 
@@ -1429,26 +1425,6 @@ knitr::include_graphics("images/featureDensity_registration.png")
 
 ## DBSCAN Algorithm Details
 
-<!-- \autoref{fig:dbscanIllustration} depicts an illustration of the DBSCAN algorithm [cite Wikimedia commons]. \hh{XXX get rid of this figure - I'm sure that you can explain the dbscan algorithm as well without giving space to figures that aren't yours. Space is the most valuable resource in a paper :)} -->
-DBSCAN has two parameters: a neighborhood radius $\epsilon$ and a minimum point threshold $Minpts$.
-<!-- In \autoref{fig:dbscanIllustration}, $Minpts = 4$ and $\epsilon$ is arbitrary and represented by the radius of the circles drawn around each point - each circle represents the $\epsilon$-neighborhood for its center point. -->
-First, the algorithm identifies cluster "core" points that contain at least $Minpts$ points within an $\epsilon$ distance.\footnote{Euclidean distance, in our application} 
-These points form the beginning of a cluster.
-All points within an $\epsilon$-neighborhood of a core point are included in the associated cluster.
-Clusters whose core points are within each other's $\epsilon$-neighborhood are combined into a single cluster.
-Any point outside of the $\epsilon$-neighborhood of a core point are called "noise points."
-Unlike other clustering algorithms, the DBSCAN algorithm does not require a specified number of expected clusters as a parameter; any points not belonging to a cluster are "noise." 
-<!-- and are shown in red in \autoref{fig:dbscanIllustration}. -->
-<!-- The yellow points $B$ and $C$ are within the $\epsilon$-neighborhood of a core point, but are not themselves core points. -->
-<!-- They are also included in the cluster making the overall cluster size 8. -->
-<!-- Finally, the blue point labelled $N$ is not in any core point's $\epsilon$-neighborhood and is thus classified as a "noise point." -->
-
-\jz{[Add image to illustrate DBSCAN?]}
-
-<!-- ```{r,out.width=".7\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:dbscanIllustration} Illustration of the DBSCAN algorithm [cite]. Red and yellow points are part of the same cluster with the former forming the "core" of the cluster. The blue point is not part of a cluster and is classified as a "noise point." Figure by Chire - Own work, CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=17045963'} -->
-<!-- knitr::include_graphics("images/dbscanIllustration.png") -->
-<!-- ``` -->
-
 ### Density-Based Feature Distributions
 
 \autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
@@ -1472,7 +1448,7 @@ This filtered element-wise average emphasizes similarities between $A$ and $B^*$
 The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
 These plots emphasize the differences between the two scans.
 The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
-We repeat this in the other comparison direction $(d = B)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| < \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
+We repeat this in the other comparison direction $(d = B)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| \leq \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
 
 ```{r,cache=TRUE,include=FALSE}
 if(!file.exists("data/compData_fullScans.RData")){
@@ -1552,62 +1528,48 @@ linesep<-function(x,y=character()){
   linesep(x[-length(x)], c(rep('',x[length(x)]-1),'\\addlinespace',y))  
 }
 
-structure(list(Model = structure(c(1L, 2L, 2L, 2L, 2L, 3L, 3L, 
-3L, 3L, 4L, 4L, 4L, 4L), levels = c("Baseline", "CART", "RF", 
-"LR"), class = "factor"), `Feature Set` = structure(c(1L, 2L, 
-2L, 3L, 3L, 2L, 2L, 3L, 3L, 2L, 2L, 3L, 3L), levels = c("$C_0$", 
-"$C_0$ + Registration", "All ACES"), class = "factor"), Criterion = structure(c(1L, 
-2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L), levels = c("", 
-"Max. AUC", "Max. Accuracy"), class = "factor"), Accuracy = c("94.67", 
-"94.32", "98.11", "97.37", "98.56", "97.09", "98.90", "98.34", 
-"99.50", "97.33", "98.93", "98.25", "\\textbf{99.56}"), `True Positive` = c("97.32", 
-"97.68", "91.09", "87.54", "86.86", "97.09", "93.09", "\\textbf{98.32}", 
-"95.91", "97.32", "93.59", "98.23", "96.50"), `True Negative` = c("94.37", 
-"93.95", "98.89", "98.47", "99.87", "97.09", "99.55", "98.34", 
-"\\textbf{99.90}", "97.33", "99.53", "98.25", "\\textbf{99.90}")), class = "data.frame", row.names = c(NA, 
--13L))%>%
-  select(`Feature Set`,Criterion,Model,Accuracy,`True Negative`,`True Positive`) %>%
-  arrange(`Feature Set`,Criterion,Model) %>%
+structure(list(Model = structure(c(1L, 3L, 3L, 4L, 4L), levels = c("Baseline", 
+"CART", "RF", "LR"), class = "factor"), `Feature Set` = structure(c(1L, 
+2L, 3L, 2L, 3L), levels = c("$C_0$", "$C_0$ + Registration", 
+"All ACES"), class = "factor"), Accuracy = c("94.19", "96.79", 
+"97.65", "96.97", "\textbf{97.71}"), `True Positive` = c("94.74", 
+"93.93", "95.42", "94.03", "\textbf{96.2}"), `True Negative` = c("94.15", 
+"97", "97.82", "97.18", "\textbf{97.83}")), class = "data.frame", row.names = c(NA, 
+-5L)) %>%
+  select(`Feature Set`,Model,Accuracy,`True Negative`,`True Positive`) %>%
+  arrange(`Feature Set`, Model) %>%
   knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the training data for the 13 binary classifier models. This table shows a numeric summary of the results shown in [Figure]. We bold the largest values in each column for emphasis.",
                label = "trainDataResults",
                format = "latex",
                escape = FALSE,
                align = c("l","l","l",
                          "r","r","r"),
-               linesep = linesep(c(1,3,3,3,3)),
+               linesep = linesep(c(1,2,2)),
                booktabs=TRUE)
 ```
-
-
 
 \autoref{tab:testDataResults} summarizes the accuracy, true positive, and true negative rates based on the test data for the 13 binary classifier models.
 We see that the Logistic Regression (LR) model performs slightly better than the Random Forest (RF) model in most cases while the CART model consistently lags behind the other two. 
 The true positive rates for the test data are noticeably lower to those for the training data summarized in \autoref{tab:trainDataResults}, although the true negative rates are similar.
 
 ```{r}
-structure(list(Model = structure(c(1L, 2L, 2L, 2L, 2L, 3L, 3L, 
-3L, 3L, 4L, 4L, 4L, 4L), levels = c("Baseline", "CART", "RF", 
-"LR"), class = "factor"), `Feature Set` = structure(c(1L, 2L, 
-2L, 3L, 3L, 2L, 2L, 3L, 3L, 2L, 2L, 3L, 3L), levels = c("$C_0$", 
-"$C_0$ + Registration", "All ACES"), class = "factor"), Criterion = structure(c(1L, 
-2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L, 2L, 3L), levels = c("", 
-"Max. AUC", "Max. Accuracy"), class = "factor"), Accuracy = c("94.20", 
-"93.82", "98.21", "96.80", "98.88", "96.79", "98.81", "97.55", 
-"99.34", "96.97", "98.78", "97.86", "\\textbf{99.38}"), `True Positive` = c("94.73", 
-"95.16", "88.22", "88.09", "86.73", "93.93", "89.81", "95.42", 
-"92.44", "94.03", "90.10", "\\textbf{95.59}", "92.63"), `True Negative` = c("94.16", 
-"93.73", "98.94", "97.45", "99.78", "97.00", "99.48", "97.71", "99.85", 
-"97.18", "99.42", "98.03", "\\textbf{99.88}")), class = "data.frame", row.names = c(NA, 
--13L)) %>%
-  select(`Feature Set`,Criterion,Model,Accuracy,`True Negative`,`True Positive`) %>%
-  arrange(`Feature Set`,Criterion,Model) %>%
+structure(list(Model = structure(c(1L, 3L, 3L, 4L, 4L), levels = c("Baseline", 
+"CART", "RF", "LR"), class = "factor"), `Feature Set` = structure(c(1L, 
+2L, 3L, 2L, 3L), levels = c("$C_0$", "$C_0$ + Registration", 
+"All ACES"), class = "factor"), Accuracy = c("94.19", "96.79", 
+"97.65", "96.97", "\\textbf{97.71}"), `True Positive` = c("94.74", 
+"93.93", "95.42", "94.03", "\\textbf{96.20}"), `True Negative` = c("94.15", 
+"97.00", "97.82", "97.18", "\\textbf{97.83}")), class = "data.frame", row.names = c(NA, 
+-5L)) %>%
+  select(`Feature Set`,Model,Accuracy,`True Negative`,`True Positive`) %>%
+  arrange(`Feature Set`,Model) %>%
   knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the test data for the 13 binary classifier models. This table shows a numeric summary of the results shown in [Figure]. We bold the largest values in each column for emphasis.",
                label = "testDataResults",
                format = "latex",
                escape = FALSE,
                align = c("l","l","l",
                          "r","r","r"),
-               linesep = linesep(c(1,3,3,3,3)),
+               linesep = linesep(c(1,2,2)),
                booktabs=TRUE)
 ```
 
