@@ -1532,9 +1532,9 @@ structure(list(Model = structure(c(1L, 3L, 3L, 4L, 4L), levels = c("Baseline",
 "CART", "RF", "LR"), class = "factor"), `Feature Set` = structure(c(1L, 
 2L, 3L, 2L, 3L), levels = c("$C_0$", "$C_0$ + Registration", 
 "All ACES"), class = "factor"), Accuracy = c("94.19", "96.79", 
-"97.65", "96.97", "\textbf{97.71}"), `True Positive` = c("94.74", 
-"93.93", "95.42", "94.03", "\textbf{96.2}"), `True Negative` = c("94.15", 
-"97", "97.82", "97.18", "\textbf{97.83}")), class = "data.frame", row.names = c(NA, 
+"97.65", "96.97", "\\textbf{97.71}"), `True Positive` = c("94.74", 
+"93.93", "95.42", "94.03", "\\textbf{96.2}"), `True Negative` = c("94.15", 
+"97", "97.82", "97.18", "\\textbf{97.83}")), class = "data.frame", row.names = c(NA, 
 -5L)) %>%
   select(`Feature Set`,Model,Accuracy,`True Negative`,`True Positive`) %>%
   arrange(`Feature Set`, Model) %>%
