@@ -948,7 +948,7 @@ As such, the left side shows a zoomed-in version of the top left corner of ROC c
 Visually, we see that the choice of feature group has a larger impact on the outcome classification behavior than the choice between the logistic regression or random forest models.
 
 To numerically compare the four models, we compute the area under the ROC curve (AUC) as well as the score threshold (Thresh.) that balances the false negative and false positive rates (the equal error rate or EER).
-The AUC for the All ACES logistic regression and random forest models are extremely similar, although the AUC for the logistic regression model is 0.0003235411 higher than that of the random forest model.
+The AUC for the All ACES logistic regression and random forest models are extremely similar, although the AUC for the logistic regression model is about 0.0003 higher than that of the random forest model.
 Both of these are higher than the AUC of the two classifiers trained on the $C_0$ + Registration feature set.
 Each model has a different score threshold that yields the equal error rate, which we visualize as points along the four ROC curves in \autoref{fig:rocPlot}.
 We use these thresholds to compute both the training and test classification results summarized below.
