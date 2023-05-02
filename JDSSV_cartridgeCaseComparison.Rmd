@@ -698,7 +698,7 @@ $\Delta_{\text{trans}}$ & Root sum of squares of the density-estimated translati
 
 ### Visual Diagnostic Features
 
-The final set of features we calculate are based on visual diagnostic tools described in \jz{[Zemmels et al. (2023)]}.
+The final set of features we calculate are based on visual diagnostic tools described in \jz{[visual diagnostics paper]}.
 These numerical features quantify the qualitative observations one can make from the diagnostics.
 
 To create the visual diagnostics, we perform element-wise matrix operations.
@@ -924,7 +924,7 @@ These models predict the probability that a pair of cartridge cases match.
 Then, the model classifies the pair as a match or non-match depending on whether the match probability exceeds a set threshold.
 On top of the tunable parameters of each model (e.g., the DBSCAN parameters $\epsilon$ and $minPts$), we treat this threshold as a parameter to be optimized.
 
-Models that are trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class, which in our case are non-matches \citep{Fernndez2018}.
+Models trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class \citep{Fernndez2018}, which in our case are non-matches.
 An optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values \citep{James2013}.
 The model that maximizes this area, commonly abbreviated AUC, is one that performs best under a variety of threshold values relative to the other models - this consistency is a desired trait.
 Using the ROC curve, we choose the match probability threshold that balances the true negative and true positive (or, conversely, the false negative and false positive) rates on the training data.
@@ -985,7 +985,7 @@ Below, we explore this discrepancy by analyzing the contribution of various test
 
 The third row of \autoref{fig:trainTestAccuracy} summarizes the classification results based on using all 19 ACES features.
 If we compare the "$C_0$ + Registration"-trained models in the second vs. the "All ACES"-trained models in the third row, we see that the addition of the other ACES features leads to improved test true negative and true positive rates (and consequently overall accuracy).
-Across all five models, the All ACES-trained logistic regression model has the largest overall test accuracy, true negative, and true positive rates of 97.91% and 98.06%, and 95.91%, respectively.
+Across all five models, the All ACES-trained logistic regression model has the largest overall test accuracy, true negative, and true positive rates of 97.91%, 98.06%, and 95.91%, respectively.
 For all of these measures, the random forest model trained under the same conditions is a close second (see \autoref{tab:testDataResults} for more details).
 
 While it's useful to consider the accuracy, true negative, and true positive rates to compare various models, forensic examiners would likely not use the binary classification returned by a model in casework.
@@ -1064,8 +1064,8 @@ The $C_0$-based error rates are the same as those shown in the first row of \aut
 \begin{tabular}{l r r r}
 Classification Method & Error (\%) & False Positive (\%) & False Negative (\%) \\
 \hline
-CMC method & 2.6  & 0.3 & 33.8 \\
-Only $C_0$ feature & 28.0  & 29.8 & 2.5\\
+CMC method &  &  &  \\
+Only $C_0$ feature &   &  & \\
 ACES LR & 2.3 & 2.2 & 3.8 \\
 \end{tabular}
 \caption{Testing classification error, false positive, and false negative rates for four types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}. The last row shows results from the Logistic Regression classifier trained on the all 19 ACES features.}
@@ -1087,11 +1087,9 @@ Comparison algorithms like ACES will inevitably be used to augment the opinion o
 As such, it is important that forensic examiners are able to interpret and explain the results of a comparison algorithm.
 The visual diagnostic features are useful for explaining the behavior of the algorithm in a manner that aligns with more traditional identification theory.
 
-\jz{[Discuss sensitivity to cell grid size (and DBSCAN parameters?) here]}
-
 ## Model Selection Considerations
 
-Our intention in fitting three classification models using different feature sets is to explore each model's strengths and weaknesses.
+Our intention in fitting the logistic regression and random forest classification models using different feature sets is to explore each model's strengths and weaknesses.
 A critical step in putting the ACES algorithm into practice will be to settle on a single model.
 Pragmatically, it seems reasonable to choose the model with the highest estimated accuracy on available test data.
 However, we noted that models trained by this optimization criterion on imbalanced data tend to over-classify the majority class.
@@ -1107,6 +1105,8 @@ More interpretable models are easier to understand, and therefore should be pref
 The classification behavior of the logistic regression and classification tree models are arguably easier to explain than the random forest model.
 For example, the logistic regression model parameters can be understood in terms of the estimated increase in odds of a match.
 Paired with its comparable performance to the random forest, we propose the logistic regression model with all 19 ACES features as the preferred model that balances interpretability with accuracy.
+
+\jz{[Discuss sensitivity to cell grid size (and DBSCAN parameters?) here]}
 
 # Conclusion
 
