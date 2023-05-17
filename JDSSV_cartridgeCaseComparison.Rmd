@@ -351,9 +351,9 @@ Due to the presence of (structurally) missing values around the breech face impr
 We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$-th row and $j$-th column, starting from the top-left corner, of matrix $A$.
 We refer to the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
 
-To accommodate structurally missing values, we adapt standard matrix algebra as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing.
+To accommodate structurally missing values, we adapt standard matrix algebra \hh{by extending the space of real values by an element encoding 'missingness'} as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing.
 Standard matrix algebra holds for non-missing elements.
-For example, the addition operator is defined as:
+For example, the addition operator is then defined as:
 \begin{align*}
 A \oplus_{NA} B = (a_{ij} \oplus_{NA} b_{ij})_{1 \leq i,j \leq k} = 
 \begin{cases}
@@ -363,7 +363,9 @@ NA &\text{otherwise}
 \end{align*}
 Other element-wise operations such as $\ominus_{NA}$ are defined similarly.
 For readability, we will use standard operator notation $+, -, >, <, I(\cdot), ...$ and assume the extended, element-wise operations as defined above.
+\hh{Note, that this definition of dealing with missing values is consistent with a setting of `na.rm=FALSE` in terms of calculations in R \citep{R}.}
 
+\hh{XXX Differences are based on only the overlapping space. Should we keep track of how many values are missing in one but not the other scan (cell)? There might be information in how well the registration worked. }
 
 ```{r,cache=FALSE,include=FALSE}
 plt <- impressions::x3pPlot(reference_eroded,target_eroded,x3pNames = c("Scan A","Scan B"),legendLength = grid::unit(4, "in"))
