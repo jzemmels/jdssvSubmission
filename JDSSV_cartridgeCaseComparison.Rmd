@@ -43,7 +43,7 @@ title:
   plain:     "Automatic Matching of Cartridge Case Impressions"
   short:     "Automatic Matching of Cartridge Case Impressions"
 abstract: >
-    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion. Recently, algorithms that provide an automatic and objective measure of similarity of the evidence have become more prevalent. We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm that encompasses preprocessing, feature extraction, and similarity scoring. Our primary contribution is a set of features used to classify whether two cartridge cases were fired from the same firearm. We use a train/test split on a data set of 510 cartridge case scans to fit and validate random forest and logistic regression models. We demonstrate that these models are more accurate than predominant algorithms on our data set.
+    Forensic examinations attempt to solve the binary classification problem of whether two pieces of evidence originated from the same source. For example, a cartridge case found at a crime scene may be compared to a cartridge case fired from a suspect’s firearm. Forensic examiners traditionally rely on high-powered comparison microscopes, case facts, and their own experience to arrive at a source conclusion.  Automatic comparison algorithms have grown in prevalence in a number of forensic disciplines following the reports from @council_strengthening_2009 and @pcast2016. Many of these algorithms objectively measure the similarity between evidence, such as two fired cartridge cases, based on markings left on their surface, such as impressions left by a firearm’s breech face during the firing process.  We introduce the Automatic Cartridge Evidence Scoring (ACES) algorithm to compare pairs of three-dimensional topographical surface scans of breech face impressions.  The ACES algorithm pre-processes the scans, extracts numeric features, and returns a similarity score indicating whether two cartridge cases were fired from the same firearm. The numeric features are computed based on a cell-by-cell registration procedure, results from a density-based unsupervised clustering algorithm, and derived from visual diagnostic tools we developed to investigate the performance of cartridge case comparison algorithms.  We use scans taken at the Roy J. Carver High Resolution Microscopy Facility of cartridge cases collected by @Baldwin2014 to train and test the ACES algorithm.  The performance of ACES compares favorably to several other methods, such as logistic regressions on smaller feature sets, random forests, and some variants of previous Congruent Matching Cells methods [@song_proposed_2013; @zhang_convergence_2021].  We implement the ACES algorithm's scoring functionality in a free, open-source R package called `scored`.
 keywords:
   # at least one keyword must be supplied
   formatted: [forensics, forensic statistics, pattern recognition, firearms and toolmarks, "\\proglang{R}", random forest, cross-validation, classification]
@@ -93,106 +93,98 @@ library(patchwork)
 
 # Introduction
 
-A \emph{cartridge case} is the part of firearm ammunition that houses the projectile and propulsive device.
-When a firearm is discharged and the projectile travels down the barrel, the cartridge case moves in the opposite direction and slams against the back wall, the \emph{breech face}, of the firearm.
-Markings on the breech face are "stamped" into the surface of the cartridge case leaving so-called \emph{breech face impressions}.
+A *cartride case* is the part of firearm ammunition that houses the projectile and propulsive device.
+When a firearm is discharged and the projectile travels down the barrel, the cartridge case moves in the opposite direction and slams against the back wall, the *breech face*, of the firearm.
+Markings on the breech face are "stamped" into the surface of the cartridge case leaving so-called *breech face impressions*.
 
 In a traditional examination, forensic examiners use these impressions analogous to a fingerprint to determine whether two cartridge cases were fired from the same firearm.
-The top of \autoref{fig:examination-algorithm-comparison} illustrates this procedure \citep{xiaoHui_seminar,Zheng2014,Vorburger2015}.
+The top of \autoref{fig:examinationAlgorithmComparison} illustrates this procedure [@xiaoHui_seminar;  @Zheng2014].
 First, two cartridge cases are collected - perhaps one is from a crime scene and the other is collected from a suspect's gun.
-An examiner places the two cartridge cases beneath a "comparison microscope" that merges the views of two compound microscopes into a single split view, similar to the side-by-side cartridge case image in \autoref{fig:examination-algorithm-comparison}.
-The examiner assesses the degree of similarity between the markings on the cartridge cases and chooses one of four conclusions  \citep{AFTE1992}:
+An examiner places the two cartridge cases beneath a "comparison microscope" that merges the views of two compound microscopes into a single split view, similar to the side-by-side cartridge case image in \autoref{fig:examinationAlgorithmComparison}.
+The examiner assesses the degree of similarity between the markings on the cartridge cases and chooses one of four conclusions  @AFTE1992:
 
-\begin{enumerate}
-\item \textbf{Identification:} cartridge cases were fired from the same firearm
+1. **Identification:** cartridge cases were fired from the same firearm
 
-\item \textbf{Elimination:} cartridge cases were not fired from the same firearm
+2. **Elimination:** cartridge cases were not fired from the same firearm
 
-\item \textbf{Inconclusive:} the evidence is insufficient to make an identification or elimination
+3. **Inconclusive:** the evidence is insufficient to make an identification or elimination
 
-\item \textbf{Unsuitable:} the evidence is unsuitable for examination
-\end{enumerate}
+4. **Unsuitable:** the evidence is unsuitable for examination
 
-
-<!-- Forensic examinations measure the probative value of a piece of evidence. -->
-<!-- Typically, a forensic examiner visually inspects the evidence to determine its source. -->
-
-<!-- The "ground-truth" of a forensic comparison is a binary classification problem. -->
-<!-- Briefly reference how comparisons are done by examiners currently. -->
-<!-- Keep focus on firearm and toolmark evidence. -->
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:examination-algorithm-comparison} Comparison of the traditional examination vs. the currently proposed method for comparing cartridge cases. Both start with two fired cartridge cases. In traditional examination, an examiner uses a microscope to assess the "agreement" of markings on the two cartridge case surfaces. They decide whether or not the cartridge cases were fired from the same firearm, or if there is inconclusive evidence to decide. In the ACES algorithm, we take a topographical scan of the cartridge case surfaces and manually identify the regions containing distinguishable markings (shown in red). We pass these scans to the ACES algorithm, which processes and compares the two scans. The final result is a numerical measure of similarity of the two cartridge cases.'}
-knitr::include_graphics("images/Cartridge on Sensofar Scope/examination_vs_algorithm_comparison_oneScanSideView.png")
+```{r examinationAlgorithmComparison,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='Comparison of the traditional examination vs. the currently proposed method for comparing cartridge cases. Both start with two fired cartridge cases. In traditional examination, an examiner uses a microscope to assess the ``agreement" of markings on the two cartridge case surfaces (Cartridge Case Comparison Source: \\href{https://dps.mn.gov/divisions/bca/bca-divisions/forensic-science/Pages/comparative-examinations.aspx}{Comparative Examinations} via \\href{https://dps.mn.gov/divisions/bca/}{Minnesota Bureau of Criminal Apprehension}). They decide whether or not the cartridge cases were fired from the same firearm, or if there is inconclusive evidence to decide. In our proposed pipeline, we first take a topographical scan of the cartridge case surfaces and manually identify the regions containing distinguishable markings (shown in red). We pass these scans to the ACES algorithm, which yields a quantitative measure of similarity of the two scans.'}
+knitr::include_graphics("images/examination_vs_algorithm_comparison_oneScanSideView.png")
 ```
 
-Critics of traditional forensic examinations cite a lack of "foundational validity" underlying the procedures used by firearm and toolmark examiners \citep{nas2009,pcast}.
+Critics of traditional forensic examinations cite a lack of "foundational validity" underlying the procedures used by firearm and toolmark examiners [@council_strengthening_2009; @pcast2016].
 In particular, examiners rely largely on their subjective findings rather than on a well-defined procedure to measure similarity.
-\citet{pcast} pushed for "developing and testing image-analysis algorithms" to objectively measure the similarity between cartridge cases.
-An automatic comparison algorithm could supplement, inform, or dictate an examiner's conclusion \citep{swofford}.
+@pcast2016 pushed for "developing and testing image-analysis algorithms" to objectively measure the similarity between cartridge cases.
+An automatic comparison algorithm could supplement, inform, or dictate an examiner's conclusion [@Swofford2021].
 
 We introduce a novel Automatic Cartridge Evidence Scoring (ACES) algorithm to objectively compare cartridge case evidence based on their breech face impressions.
-Our algorithm encompasses all stages of the comparison procedure after collecting a scan of the cartridge case surface including preprocessing, comparing, and scoring.
-Our ACES algorithm is available open-source as part of the [scored](https://jzemmels.github.io/scored/) R package.
+Our algorithm encompasses all stages of the comparison procedure after collecting a scan of the cartridge case surface including pre-processing, comparing, and scoring.
+Our ACES algorithm is available open-source as part of the \href{https://jzemmels.github.io/scored/}{scored} R package.
 
 In the following sections, we first review recently proposed algorithms to compare firearm evidence.
 We then discuss the data collection procedure to obtain 510 cartridge scans used in training and validating the ACES algorithm.
-To our knowledge, this is the largest published study of a cartridge case scoring algorithm to-date, with the next largest analyzing four different data sets totaling 195 cartridge cases \citep{chen_convergence_2017}.
-After describing the ACES algorithm, we present summary results from training and testing two binary classifier models: based on a random forest and logistic regression.
-We discuss the strengths and weaknesses of the two classifier models and compare the relative importance of the ACES features.
+After describing the methodology behind the ACES algorithm, we present summary results from training and testing three binary classifier models: base on a random forest, logistic regression, and classification tree.
+We discuss the strengths and weaknesses of the three classifier models and compare the relative importance of the ACES features.
 We also argue that the ACES algorithm combines the classification rules of previously proposed cartridge case comparison algorithms while incorporating additional nuance.
 We conclude with our thoughts on how cartridge case comparison algorithms should be developed, validated, and shared going forward.
 
 ## Previous Work
 
-Many recent proposals for automatic cartridge case scoring algorithms borrow from image processing and computer vision techniques.
-For example, \citet{vorburger_surface_2007} proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
+Recent proposals for automatic cartridge case scoring algorithms borrow from image processing and computer vision techniques.
+For example, @vorburger_surface_2007 proposed using the cross-correlation function (CCF) to compare images or scans of cartridge case surfaces.
 The CCF measures the similarity between two matrices for all possible translations of one matrix against the other.
-Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the \emph{registration}, between the two scans; simply choose the rotation/translation at which the CCF is maximized.
-\citet{aoas} used the CCF, among other features, to compare scans of bullets.
-\citet{tai_fully_2018} developed an open-source cartridge case comparison pipeline that compared cartridge case images using the CCF.
+Calculating the CCF while rotating one of the scans therefore allows for estimation of the optimal translation and rotation, together referred to as the *registration*, between the two scans;  simply choose the rotation/translation at which the CCF is maximized.
+@hare_automatic_2016 used the CCF, among other features, to compare scans of bullets.
+@tai_fully_2018 developed an open-source cartridge case comparison pipeline that compared cartridge case images using the CCF.
 
-\citet{song_proposed_2013} noted that two matching cartridge cases often share similar impressions in specific regions, so calculating the CCF between two full scans may not highlight their similarities.
-Instead, \citet{song_proposed_2013} proposed partitioning one cartridge case scan into a grid of "cells" and calculating the CCF between each cell and the other scan.
+@song_proposed_2013 noted that two matching cartridge cases often share similar impressions in specific regions, so calculating the CCF between two full scans may not highlight their similarities.
+Instead, @song_proposed_2013 proposed partitioning one cartridge case scan into a grid of "cells" and calculating the CCF between each cell and the other scan.
 If two cartridge cases are truly matching, then the maximum CCF value between each cell and the other scan, particularly the cells containing distinguishable breech face impressions, should be relatively large.
 Furthermore, the cells should "agree" on the registration at which the CCF is maximized.
-\citet{song_proposed_2013} outlined the "Congruent Matching Cells" algorithm to determine the number of cells that agree on a particular registration.
+@song_proposed_2013 outlined the "Congruent Matching Cells" algorithm to determine the number of cells that agree on a particular registration.
 A cell is classified as a Congruent Matching Cell (CMC) if its estimated registration is within some threshold of the median registration across all cells and its CCF value is above some threshold.
-A number of follow-up papers proposed alterations to the the original CMC method \citep{tong_improved_2015,chen_convergence_2017}.
-\citet{cmcR} introduced an open-source implementation of the CMC method in the cmcR R package.
-As an alternative to defining Congruent Matching Cells, \citet{zhang_convergence_2021} proposed using a clustering algorithm from \citet{dbscan} to determine the number of cells in agreement on a specific registration.
+A number of follow-up papers proposed alterations to the the original CMC method [@tong_improved_2015; @chen_convergence_2017].
+@cmcR introduced an open-source implementation of the CMC method in the `cmcR` R package.
+As an alternative to defining Congruent Matching Cells, @zhang_convergence_2021 proposed using a clustering algorithm from @Ester1996 to determine the number of cells in agreement on a specific registration.
 
-Currently, there is no rigorous procedure for comparing different cartridge case comparison algorithms.
+Currently, none of these papers have proposed rigorous procedure for comparing different cartridge case comparison algorithms.
 This includes selecting optimal parameters for a specific algorithm.
-\citet{Zemmels2023} proposed an optimization criterion to select parameters for the CMC algorithm.
-Analogously, \citet{aoas} developed a validation procedure to select parameters for a bullet comparison algorithm.
+@Zemmels2023 proposed an optimization criterion to select parameters for the CMC algorithm.
+Analogously, @hare_automatic_2016 developed a validation procedure to select parameters for a bullet comparison algorithm.
 In this work, we introduce a novel cross-validation procedure to learn and test optimal parameters for the ACES algorithm.
 
 # Cartridge Case Data
 
-We use 510 cartridge cases collected as part of a study by \citet{baldwin}. 
-The authors of the original study fired 800 Remington 9mm pistol cartridge cases from each of 25 new Ruger SR9, 9mm Luger centerfire pistols..
+We use 510 cartridge cases collected as part of a study by @Baldwin2014. 
+The authors of the original study fired 800 Remington 9mm pistol cartridge cases from each of 25 new Ruger SR9, 9mm Luger centerfire pistols.
 They separated the collected cartridge cases into 15 sets of four to be sent to each of 218 forensic examiner participants.
 Each set of four consisted of three cartridge cases labeled as originating from the same firearm, the "known-match" cartridge cases.
 Participants performed an examination to determine whether a fourth "questioned" cartridge case shared a common source with the known-match triplet (or whether the evidence was inconclusive).
 
 Across all 218 examiners, the true positive rate - proportion of correctly classified matching sets - was reported to be 99.6%.
-The reported true negative rate - the proportion of correctly classified non-matching sets - was 65.2%.
+The reported true negative rate - the proportion of correctly classified non-matching sets - was 65.2%
 The discrepancy between the true positive and true negative rates can be partially explained by the number of "inconclusive" decisions made by the examiners.
-Examiners reach an inconclusive decision when there is some agreement or disagreement in the characteristics between two cartridge cases, but not enough to make a match or non-match conclusion \citep{AFTE1992}.
-Roughly one out of five comparisons, 22.9%, were reported as inconclusive.
-The vast majority, 98.5%, of these inconclusives were truly non-matching comparisons, which justifies the true negative rate of 65.2%.
-There has recently been some debate about how to incorporate inconclusive decisions into accuracy/error rate estimation \citep{hofmann_inconclusives_2021}, so we do not report an overall accuracy here.
+Examiners reach an inconclusive decision when there is some agreement or disagreement in the characteristics between two cartridge cases, but not enough to make a match or non-match conclusion [@AFTE1992].
+Approximately one out of four comparisons, 22.9%, were reported as inconclusive.
+The vast majority of these inconclusives, 98.5%, were truly non-matching comparisons, which justifies the true negative rate of 65.2%.
+There has recently been some debate about how to incorporate inconclusive decisions into accuracy/error rate estimation [@hofmann_inconclusives_2021], so we do not report an overall accuracy of the 218 examiner participants here.
 
 We scanned the 510 cartridge cases using the Cadre$^{\text{TM}}$ 3D-TopMatch High Capacity Scanner.
 Briefly, this scanner collects images under various lighting conditions of a gel pad into which the base of a cartridge case is impressed.
-Proprietary software that accompanies this scanner combines these images into a 2D array called a \emph{surface matrix}.
+Proprietary software that accompanies this scanner combines these images into a 2D array called a *surface matrix*.
 The elements of a surface matrix represent the relative height values of the associated cartridge case surface.
-This surface matrix, along with metadata concerning parameters under which the scan was taken (dimension, resolution, author, etc.), are stored in the ISO standard XML 3D Surface Profile (\texttt{x3p}) file type \citep{ISO25178-72}.
+This surface matrix, along with metadata concerning parameters under which the scan was taken (dimension, resolution, author, etc.), are stored in the ISO standard XML 3D Surface Profile (`x3p`) file type [@ISO25178-72].
+These x3p files can be found at <https://github.com/heike/DFSC-scans>.
 
-As discussed in the next section, our design differs from that used in \citet{baldwin}.
+As discussed in the next section, our design differs from that used in @Baldwin2014.
 Rather than basing error rates on the comparison of three known-match cartridge cases to one questioned cartridge case (3 to 1), we consider the classification error rate of pairwise comparisons (1 to 1).
 Further, we split the 510 cartridge cases by randomly selecting 10 of the 25 firearms for training and use the remaining 15 firearms for testing.
 This resulted in a training set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
+We note that there is a large class imbalance between the matching and non-matching comparisons in these data sets (90\% of train and 93\% of test comparisons are truly non-matching).
+We discuss how we address this class imbalance in the methods section.
 
 \jz{[cite eventual DFSC data-in-brief or ISU datashare repo?]}
 
@@ -200,43 +192,41 @@ This resulted in a training set of 210 cartridge cases, $\binom{210}{2} = 21,945
 
 We now discuss the methods behind the Automatic Cartridge Evidence Scoring (ACES) algorithm. We divide the methods into three stages:
 
-```{=tex}
-\begin{enumerate}
-\item \textbf{Preprocessing:} prepare cartridge case scans for comparison
+1. **Pre-processing**: prepare cartridge case scans for comparison
 
-\item \textbf{Comparing:} compare two cartridge cases and compute similarity features
+2. **Comparing**: compare two cartridge cases and compute similarity features
 
-\item \textbf{Scoring:} measure the similarity between the two cartridge cases using a trained classifier
-\end{enumerate}
-```
+3. **Scoring**: measure the similarity between the two cartridge cases using a trained classifier
 
 The following sections detail each of these stages.
 Throughout, we treat "surface matrix" and "scan" synonymously.
 
-The bottom of \autoref{fig:examination-algorithm-comparison} shows a summary of our procedure.
+The bottom of \autoref{fig:examinationAlgorithmComparison} shows a summary of our procedure.
 After taking a topographical scan of the cartridge case surfaces, we manually annotate the breech face impression region (shown in red).
-ACES automatically preprocesses and compares the scans resulting in a similarity score, either a binary classification or class probability, derived from a classifier model.
+ACES automatically pre-processes and compares the scans resulting in a similarity score, either a binary classification or class probability, derived from a classifier model.
+As we pointed out in Chapter 2, prosaic descriptions like the following are insufficient to reproduce an algorithm.
+We refer the reader to <https://github.com/jzemmels/jdssvSubmission/tree/main/supplementary-code> for the source code used to implement the method and derive the results presented.
 
-## Preprocessing
+## Pre-processing
 
-We first use the open-source FiX3P web application \hh{cite Talen Fisher} to manually annotate the breech face impression region.
-An example of a manually-annotated cartridge case scan is shown in \autoref{fig:examination-algorithm-comparison}.
+We first use the open-source FiX3P web application (<https://github.com/talenfisher/fix3p>) to manually annotate the breech face impression region.
+An example of a manually-annotated cartridge case scan is shown in \autoref{fig:examinationAlgorithmComparison}.
 The FiX3P software includes functionality to "paint" the surface of a cartridge case using a computer cursor and save the painted regions to a *mask.* A mask is a 2D array of hexidecimal color values of the same dimension as its associated surface matrix.
 When initialized, every element of a mask is a shade of brown (#cd7f32) by default.
 Any elements painted over by the user will be replaced with the user's selected color value.
-In \autoref{fig:examination-algorithm-comparison}, the breech face impression region was manually annotated using a shade of red (#ff0000).
+In \autoref{fig:examinationAlgorithmComparison}, the breech face impression region was manually annotated using a shade of red (#ff0000).
 
-We preprocess the raw scans by applying a sequence of functions available in the R packages x3ptools \citep{x3ptools} and cmcR \citep{cmcR}.
+We pre-process the raw scans by applying a sequence of functions available in the R packages `x3ptools` [@x3ptools] and `cmcR` [@cmcR].
 \autoref{fig:preProcessEffect} shows the effect that each function has on the scan surface values.
 Gray pixels in each plot represent missing values in the surface matrix.
 The `x3p_delete` function removes values in the scan based on the associated mask.
 Next, the `preProcess_removeTrend` function subtracts a fitted conditional median plane from the surface values to "level-out" any global tilt in the scan.
-The `preProcess_gaussFilter()` function applies a bandpass Gaussian filter to remove small-scale noise and other large-scale structure, which better highlights the medium-scale breech face impressions.
-Finally, the `preProcess_erode()` function applies the morphological operation of erosion on the edge of the non-missing surface values \citep{Haralick1987}.
+The `preProcess_gaussFilter()` function applies a bandpass Gaussian filter with wavelength cutoff values 16 and 500 microns to remove small-scale noise and other large-scale structure, which better highlights the medium-scale breech face impressions.
+Finally, the `preProcess_erode()` function applies the morphological operation of erosion with a circular structuring element of radius 12 on the edge of the non-missing surface values [@Haralick1987].
 This has the effect of shaving off values on the interior and exterior edge of the surface, which are often extreme "roll-off" values that unduly affect the comparing stage if not removed.
 The final result is a cartridge case surface matrix with emphasized breech face impressions.
 
-```{r,cache=TRUE,include=FALSE}
+```{r preprocessExampleCode,cache=TRUE,include=FALSE}
 reference <- x3p_read("data/NIST_K013sA1.x3p")
 target <- x3p_read("data/NIST_K013sA2.x3p")
 
@@ -330,11 +320,11 @@ knitr::plot_crop("figures/preProcessEffect.png")
 ```
 
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:preProcessEffect} We apply a sequence of preprocessing functions to each scan. Each preprocessing step further emphasizes the breech face impressions in the scan."}
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:preProcessEffect} We apply a sequence of pre-processing functions to each scan. Each pre-processing step further emphasizes the breech face impressions in the scan."}
 knitr::include_graphics("figures/preProcessEffect.png")
 ```
 
-Next, we compute a set of similarity features for two preprocessed cartridge case scans.
+Next, we compute a set of similarity features for two pre-processed cartridge case scans.
 
 ## Comparing
 
@@ -346,14 +336,14 @@ Analogous to how a forensic examiner uses a comparison microscope with different
 
 First, we introduce notation that will be used to define the features.
 Let $A$ and $B$ denote two surfaces matrices that we wish to compare.
-For simplicity, we assume that $A,B \in \mathbb{R}^{k \times k}$ for $k > 0$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
+For simplicity, we assume $A,B \in \mathbb{R}^{k \times k}$ for a positive integer $k$.\footnote{This assumption of equally-sized, square matrices is easily enforced by padding the matrices with additional missing values.
 Due to the presence of (structurally) missing values around the breech face impression region, additional padding does not interfere with the structure of the scan.}
-We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$-th row and $j$-th column, starting from the top-left corner, of matrix $A$.
-We refer to the two known-match cartridge cases in \autoref{fig:matchPair} as exemplar matrices $A$ and $B$.
+We use lowercase letters and subscripts to denote a particular value of a matrix: $a_{ij}$ is the value in the $i$-th row and $j$-th column, indexed starting from the top-left corner, of matrix $A$.
+In the following sections, we will use the two known-match cartridge cases in \autoref{fig:matchPair} as example matrices $A$ and $B$.
 
-To accommodate structurally missing values, we adapt standard matrix algebra \hh{by extending the space of real values by an element encoding 'missingness'} as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing.
+To accommodate structurally missing values, we adapt standard matrix algebra by encoding the notion of "missingness" into the space of real values as follows: if an element of either matrix $A$ or $B$ is missing, then any element-wise operation including this element is also missing.
 Standard matrix algebra holds for non-missing elements.
-For example, the addition operator is then defined as:
+For example, the addition operator is defined as:
 \begin{align*}
 A \oplus_{NA} B = (a_{ij} \oplus_{NA} b_{ij})_{1 \leq i,j \leq k} = 
 \begin{cases}
@@ -363,9 +353,9 @@ NA &\text{otherwise}
 \end{align*}
 Other element-wise operations such as $\ominus_{NA}$ are defined similarly.
 For readability, we will use standard operator notation $+, -, >, <, I(\cdot), ...$ and assume the extended, element-wise operations as defined above.
-\hh{Note, that this definition of dealing with missing values is consistent with a setting of `na.rm=FALSE` in terms of calculations in R \citep{R}.}
+Note that this definition of dealing with missing values is consistent with a setting of `na.rm = FALSE` in terms of calculations in R [@Rlanguage].
 
-\hh{XXX Differences are based on only the overlapping space. Should we keep track of how many values are missing in one but not the other scan (cell)? There might be information in how well the registration worked. }
+<!-- \hh{XXX Differences are based on only the overlapping space. Should we keep track of how many values are missing in one but not the other scan (cell)? There might be information in how well the registration worked. } -->
 
 ```{r,cache=FALSE,include=FALSE}
 plt <- impressions::x3pPlot(reference_eroded,target_eroded,x3pNames = c("Scan A","Scan B"),legendLength = grid::unit(4, "in"))
@@ -383,7 +373,7 @@ knitr::include_graphics("figures/matchPair.png")
 
 A critical step in comparing $A$ and $B$ is to find a transformation of $B$ such that it aligns best to $A$ (or vice versa).
 In image processing, this is called *image registration.* 
-Noting that $A$ and $B$ are essentially grayscale images with structurally missing values, we rely on a standard image registration technique \citep{Brown1992}.
+Noting that $A$ and $B$ are essentially grayscale images with structurally missing values, we rely on a standard image registration technique [@Brown1992].
 
 In our application, a registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
 To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$, denoted $(A \star B)$.
@@ -391,9 +381,9 @@ We estimate the registration by calculating the maximum CCF value across a range
 Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
 Then the estimated registration $(m^*,n^*,\theta^*)$ is: 
 
-\begin{align*}
+$$
 (m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (a \star b_\theta)_{mn}.
-\end{align*} 
+$$
 
 In practice we consider a discrete grid of rotations $\pmb{\Theta} \subset [-180^\circ,180^\circ]$.
 The registration procedure is outlined in \autoref{alg:registration}.
@@ -428,17 +418,16 @@ We first estimate the registration between two full scans $A$ and $B$ using \aut
 This results in an estimated registration $(m^*,n^*,\theta^*)$ and similarity measure $CCF_{\max}$.
 We also perform \autoref{alg:registration} with the roles of $A$ and $B$ reversed, meaning the target scan $A$ is aligned to source scan $B$.
 
-To accommodate these two comparison directions, we introduce a new subscript $d = A,B$, referring to the source scan in \autoref{alg:registration}.
-Consequently, we obtain two sets of sets of estimated registrations, $(m^*_d,n^*_d,\theta^*_d)$ and $CCF_{\max,d}$, for $d=A,B$.\footnote{In reality, the true aligning registrations in the two comparison directions are opposites of each other. However, because we compare discretely-indexed arrays using a nearest-neighbor interpolation scheme, the estimated registrations differ slightly.}
+To accommodate these two comparison directions, we introduce a new subscript $d = A,B$, referring to the source scan in Image Registration Algorithm.
+Consequently, we obtain two sets of estimated registrations, $(m^*_d,n^*_d,\theta^*_d)$ and $CCF_{\max,d}$, for $d=A,B$.\footnote{In reality, the true aligning registrations in the two comparison directions are opposites of each other. However, because we compare discretely-indexed arrays using a nearest-neighbor interpolation scheme, the estimated registrations may differ slightly.}
 For $d = A$, we then apply the registration transformation $(m^*_A,n^*_A,\theta^*_A)$ to $B$ to obtain $B^*$ and compute the pairwise-complete correlation, $cor_{\text{full},A}$, between $A$ and $B^*$.
 We repeat this in the other comparison direction to obtain $cor_{\text{full},B}$ and average the two:
-\begin{align*}
-cor_{\text{full}} = \frac{1}{2}\left(cor_{A,\text{full}} + cor_{B,\text{full}}\right).
-\end{align*}
-We assume that the **full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
 
-<!-- \hline -->
-<!-- $CCF_{\max}$ & Maximum value of the cross-correlation function across a grid of rotations \\ -->
+$$
+cor_{\text{full}} = \frac{1}{2}\left(cor_{A,\text{full}} + cor_{B,\text{full}}\right).
+$$
+
+We assume that the **full-scan pairwise-complete correlation** is large for truly matching cartridge cases.
 
 #### Cell-Based Registration
 
@@ -478,7 +467,7 @@ knitr::include_graphics("images/cellGridExample_nonMatch.png")
 ```
 
 \autoref{fig:cellGridExample} shows the estimated registrations of cells between two non-match cartridge cases.
-We magnify the surface values captured by cell pairs 5, 1 and 7, 7 and note the similarities in the surface values; for example, the dark purple region in the middle of the cell 7, 7 pair.
+We magnify the surface values captured by cell pairs 5, 1 and 7, 7 and note the similarities in the surface values;  for example, the dark purple region in the middle of the cell 7, 7 pair.
 
 Just as with the whole-scan registration, we calculate the pairwise-complete correlation between each cell $A_t$ and a matrix $B_{\theta,t}^*$ of the same size extracted from $B^*_{\theta}$ after translating by $[m^*_{A,\theta},n^*_{A,\theta}]$.
 From this we obtain a set of pairwise-complete correlations for each cell and rotation: $\{cor_{A,t,\theta} : t = 1,...,T_A, \theta \in \pmb{\Theta}'_A\}$.
@@ -486,37 +475,44 @@ From this we obtain a set of pairwise-complete correlations for each cell and ro
 We repeat \autoref{alg:cellComparison} and the pairwise-complete correlation calculation using $B$ as the source scan and $A^*$ as the target, resulting in cell-based registration set $\pmb{F}_B$ and pairwise-complete correlations $\{cor_{B,t,\theta} : t = 1,...,T_B, \theta \in \pmb{\Theta}'_B\}$.
 
 For $d = A,B$ and $t = 1,...,T_d$, define the cell-wise maximum pairwise-complete correlation as: 
-\begin{align*}
-cor_{d,t} &= \max_{\theta} \{cor_{d,t,\theta} : \theta \in \pmb{\Theta}'_d\}
-\end{align*}
 
-We compute two features, the \textbf{average} and \textbf{standard deviation of the cell-based pairwise-complete correlations}, using the correlation data: 
+$$
+cor_{d,t} = \max_{\theta} \{cor_{d,t,\theta} : \theta \in \pmb{\Theta}'_d\}.
+$$
+
+We compute two features, the **average** and **standard deviation of the cell-based pairwise-complete correlations**, using the correlation data:
+
 \begin{align*}
 \overline{cor}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} cor_{d,t} \\
-s_{cor} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (cor_{d,t} - \overline{cor}_{\text{cell}})^2}
+s_{cor} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (cor_{d,t} - \overline{cor}_{\text{cell}})^2}.
 \end{align*} 
 
 We expect $\overline{cor}_{\text{cell}}$ and $s_{cor}$ to be large for truly matching cartridge case pairs relative to non-matching pairs.
 
 For $d = A,B$ and $t = 1,...,T_d$, define the per-cell estimated translations and rotation as: 
+
 \begin{align*}
 \theta^*_{d,t} &= \arg \max_{\theta} \{CCF_{\max,d,t,\theta} : \theta \in \pmb{\Theta}'_d\} \\
-m^*_{d,t} &= m^*_{d,t,\theta^*_{d,t}} \\
-n^*_{d,t} &= n^*_{d,t,\theta^*_{d,t}}
+m^*_{d,t} &= m^*_{\theta^*_{d,t},d,t} \\
+n^*_{d,t} &= n^*_{\theta^*_{d,t},d,t}.
 \end{align*} 
 
-We compute the \textbf{standard deviation of the cell-based estimated registrations} using the estimated translations and rotations: 
+We compute the **standard deviation of the cell-based estimated registrations** using the estimated translations and rotations:
+
 \begin{align*}
 s_{\theta^*} =  \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (\theta^*_{d,t} - \bar{\theta}^*)^2} \\
 s_{m^*} =  \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (m^*_{d,t} - \bar{m}^*)^2} \\
 s_{n^*} = \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} (n^*_{d,t} - \bar{n}^*)^2}
-\end{align*} 
+\end{align*}
+
 where 
+
 \begin{align*}
 \bar{m}^* &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}}\sum_{t=1}^{T_d} m^*_{d,t} \\
 \bar{n}^* &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} n^*_{d,t} \\
 \bar{\theta}^* &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} \theta^*_{d,t}.
 \end{align*}
+
 We expect $s_{\theta^*}, s_{m^*},s_{n^*}$ to be small for truly matching cartridge case pairs relative to non-matching pairs.
 
 From the full-scan and cell-based registration procedures, we obtain six features summarized in \autoref{tab:registrationFeatures}.
@@ -546,15 +542,15 @@ $s_{\theta^*}$ & Standard deviation of the cell-based rotations (degrees)
 ### Density-Based Features
 
 We wish to identify when multiple cells agree on, or cluster around, a particular registration value.
-However, pursuant with the notion that only certain regions of matching cartridge cases contain distinctive markings, it is unreasonable to assume and empirically rare that \emph{all} cells agree on a single registration.
+However, pursuant with the notion that only certain regions of matching cartridge cases contain distinctive markings, it is unreasonable to assume and empirically rare that **all** cells agree on a single registration.
 In fact, it is common for many cells to disagree on a registration.
 For example, the left scatterplot in \autoref{fig:dbscanScatterplot} shows the per-cell estimated translations $[m^*_{A,t,\theta}, n^*_{A,t,\theta}]$ when scan $A$ is used as source and $B^*$ as target rotated by $\theta = 3^\circ$.
 The right scatterplot shows the per-cell estimated translations with the roles of $A$ and $B^*$ reversed for $\theta = -3^\circ$.
 We see distinctive clusters, the black points, in both plots among many noisy, gray points.
 The task is to isolate the clusters amongst such noise.
 
-We use the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm proposed by \citet{dbscan} to identify clusters.
-Compared to other clustering algorithms such as k-means \citep{MacQueen1967}, DBSCAN does not require a pre-defined number of expected clusters.
+We use the Density-Based Spatial Clustering of Applications with Noise (DBSCAN) algorithm proposed by @Ester1996 to identify clusters.
+Compared to other clustering algorithms such as k-means [@MacQueen1967], DBSCAN does not require a pre-defined number of expected clusters.
 Instead, the algorithm forms clusters if the number of points within an $\epsilon > 0$ distance of a point exceeds some pre-defined threshold, $minPts > 1$.
 If a point does not belong to a cluster, then DBSCAN labels that point as "noise."
 In \autoref{fig:dbscanScatterplot}, we use DBSCAN with $\epsilon = 5$ and $minPts = 5$ to identify clusters of size 14 and 13, respectively, visualized as black points.
@@ -667,18 +663,20 @@ knitr::plot_crop("figures/dbscanScatterplot.png")
 knitr::include_graphics("figures/dbscanScatterplot.png")
 ```
 
-To calculate the density-based features, we first use a 2D kernel density estimator \citep{MASS} to identify the rotation $\hat{\theta}_d$ at which the per-cell translations achieve the highest density.
-Next, we compute clusters using the DBSCAN algorithm amongst the estimated translations $\{(m^*_{d,t,\hat{\theta}_d},n^*_{d,t,\hat{\theta}_d}) : t = 1,...,T_d\}$ like those shown in \autoref{fig:dbscanScatterplot}.\footnote{If more than one cluster is identified, we binarize the points based on whether they were assigned to any cluster or if they are a noise point and proceed as if there is only one cluster. We assume that two or more clusters form only because of the course rotation grid considered. Were a finer grid used, the points would coalesce into a single cluster around the true translation value. This assumption has empirical support through our experimentation.} 
+To calculate the density-based features, we first use a 2D kernel density estimator [@MASS] to identify the rotation $\hat{\theta}_d$ at which the per-cell translations achieve the highest density.
+Next, we compute clusters using the DBSCAN algorithm amongst the estimated translations $\{(m^*_{d,t,\hat{\theta}_d},n^*_{d,t,\hat{\theta}_d}) : t = 1,...,T_d\}$ like those shown in \autoref{fig:dbscanScatterplot}.^[If more than one cluster is identified, we binarize the points based on whether they were assigned to any cluster or if they are a noise point and proceed as if there is only one cluster. We assume that two or more clusters form only because of the course rotation grid considered. Were a finer grid used, the points would coalesce into a single cluster around the true translation value. This assumption has empirical support through our experimentation.]
 Let $\pmb{C}_d$ denote the set of cells in the DBSCAN cluster.
 We treat the mean cluster centers as the estimated translations $[\hat{m}_d,\hat{n}_d]$.
 
-We calculate four features from the density-based clustering procedure: \textbf{average DBSCAN cluster size} $C$, the \textbf{DBSCAN cluster indicator} $C_0$, and the \textbf{root sum of squares of the density-estimated registrations} $(\Delta_\theta, \Delta_{\text{trans}})$ defined as:
+We calculate four features from the density-based clustering procedure: **average DBSCAN cluster size** $C$, the **DBSCAN cluster indicator** $C_0$, and the **root sum of squares of the dens**ity-estimated registrations $(\Delta_\theta, \Delta_{\text{trans}})$ defined as:
+
 \begin{align*}
 C &= \frac{1}{2}\left(|\pmb{C}_A| + |\pmb{C}_B|\right) \\
 C_0 &= I(|\pmb{C}_A| > 0 \text{ and } |\pmb{C}_B| > 0)\\
 \Delta_\theta &= |\hat{\theta}_A + \hat{\theta}_B| \\
 \Delta_{\text{trans}} &= \sqrt{(\hat{m}_A + \hat{m}_B)^2 + (\hat{n}_A + \hat{n}_B)^2}
-\end{align*} where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identity function equal to 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
+\end{align*} 
+where $|\pmb{C}_d|$ denotes the cardinality of $\pmb{C}_d$ and $I(\cdot)$ is the identity function equal to 1 if the predicate argument "$\cdot$" evaluates to TRUE and 0 otherwise.
 We use both $C$ and $C_0$ because of potential missingness in the values of $C$ if no cluster is identified.
 Missing $C$ values are imputed using the median non-missing value when fitting classifiers, so the missingness information is retained in $C_0$.
 
@@ -702,9 +700,14 @@ $\Delta_{\text{trans}}$ & Root sum of squares of the density-estimated translati
 
 The final set of features we calculate are based on visual diagnostic tools described in \jz{[visual diagnostics paper]}.
 These numerical features quantify the qualitative observations one can make from the diagnostics.
+We provide a broad summary of the visual diagnostics features here, but we encourage the reader to see \jz{[visual diagnostics paper]} to learn more.
 
-To create the visual diagnostics, we perform element-wise matrix operations.
+To construct the visual diagnostics, we perform element-wise operations on two matrices.
+For the full scan comparisons, we perform these operations on the matrices $A$ and $B^*$, which is the aligned version of $B$ after applying the image registration algorithm.
+We introduce the visual diagnostics in the context of the full scan comparisons, but they generalize smoothly to the case of cell comparisons as well.
+
 For a matrix $X \in \mathbb{R}^{k \times k}$ and Boolean-valued condition matrix $cond: \mathbb{R}^{k \times k} \to \{TRUE,FALSE\}^{k \times k}$, we define an element-wise filter operation $\mathcal{F}: \mathbb{R}^{k \times k} \to \mathbb{R}^{k \times k}$ as:
+
 \begin{align*}
 \mathcal{F}_{cond}(X) = 
 (f_{ij})_{1 \leq i,j \leq k} =
@@ -713,176 +716,90 @@ x_{ij} &\text{if $cond$ is $TRUE$ for element $i,j$} \\
 NA &\text{otherwise}
 \end{cases}
 \end{align*}
-Of particular interest in our application is the (absolute) difference between surface matrices.
+
 For example, $\mathcal{F}_{|A - B^*| > \tau}(A)$ contains elements of matrix $A$ where the pair of scans $A$ and $B^*$ deviate by at least $\tau > 0$.
 Surface values in $A$ and $B^*$ that are "close," meaning within $\tau$ distance, to each other are replaced with $NA$ in this filtered matrix.
 
-First, we calculate the correlation $cor_{d,\text{full},\text{diff}}$ between the filtered matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ for $d = A$ and $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$ for $d = B$.
-We use the average \textbf{full-scan differences correlation} as a feature:
-\begin{align*}
-cor_{\text{full},\text{diff}} = \frac{1}{2}\left(cor_{A,\text{full},\text{diff}} + cor_{B,\text{full},\text{diff}}\right).
-\end{align*}
+We compute features based on the elements of the $cond$ matrix.
+First, we consider the ratio between the number of $TRUE$ and $FALSE$ elements in the matrix $|A - B^*| \leq \tau$, where $TRUE$ values correspond to elements of $A$ and $B^*$ within $\tau$ distance of each other.
+<!-- The definition of this ratio is given by Equation \autoref{eq:ratio}. -->
 
-We assume that $cor_{\text{full},\text{diff}}$ will be large for matching cartridge case pairs relative to non-matching pairs.
-Said another way, we assume that regions of matching cartridge cases that are different will still follow similar trends.
-This can occur due to variability in the amount of contact between a cartridge case and breech face across multiple fires of a single firearm.
-We calculate the correlation by vectorizing the two filtered surface matrices and treating missing values by case-wise deletion.
+<!-- \autoref{fig:similaritiesDifferencesRatio} in Chapter 3 shows an example of this ratio for two matching $A = K013sA1$ and $B = K013sA2$. -->
+The value of the "similarities vs. differences ratio" is 2.84 using a filter threshold of $\tau = 1$ micron
+If we consider the $TRUE$ and $FALSE$ elements of the $|A - B^*| \leq \tau$ matrix as the elements of $A$ and $B^*$ that are most "similar" and "different" then we can interpret this value to mean that there are 2.84 times as similarities as there are differences.
 
-As before, we extend our notation to accommodate cell comparisons $t = 1,...,T_d$ for $d = A,B$ using subscripts: $cor_{d,t,\text{diff}}$.
-For example, $cor_{A,t,\text{diff}}$ is the correlation between cell filtered surface matrices $\mathcal{F}_{|A_t - B_{t,\theta_t^*}^*| > \tau}(A_t)$ and $\mathcal{F}_{|A_t - B_{t,\theta_t^*}^*| > \tau}(B_{t,\theta_t^*}^*)$ where $B_{t,\theta_t^*}^*$ is the matrix extracted from $B^*$ that maximizes the CCF with $A_t$.
-We calculate the \textbf{average cell-based differences correlation} across all cells and both directions:
-\begin{align*}
-\overline{cor}_{\text{cell},\text{diff}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} cor_{d,t,\text{diff}}
-\end{align*}
-
-<!-- s_{cor_{diff,\cdot}}^2 &= \frac{1}{T-1} \sum_{t=1}^T (cor_{diff,t} - \overline{cor}_{diff,\cdot})^2. -->
-
-Next, we consider features based on the elements of the Boolean $cond$ matrix.
-Consider \autoref{fig:filterLabeling} that shows the filtered element-wise average $\mathcal{F}_{|A - B^*| \leq \tau}\left(\frac{1}{2}(A + B^*)\right)$ on the left and the complementary $cond$ matrix $|A - B^*| > \tau$ visualized in black-and-white in the middle with filtered elements whose $cond$ value is $TRUE$ shown in white.
-
-We first calculate the ratio between such a $cond$ matrix and its complement.
-For $d = A$, we consider the $cond$ matrices $|A - B^*| \leq \tau$ and $|A - B^*| > \tau$.
-The ratio is given by
-\begin{align*}
-r_{d} = \frac{\pmb{1}^T I(|A - B^*| \leq \tau) \pmb{1}}{\pmb{1}^T I(|A - B^*| > \tau) \pmb{1}}
-\end{align*}
-where $\pmb{1} \in \mathbb{R}^k$ is a column vector of ones and $I(\cdot)$ is the element-wise, matrix-valued indicator function.
-We consider the average \textbf{full-scan similarities vs. differences ratio} across the two comparison directions:
-\begin{align*}
+Because we perform comparisons in both directions $d = A,B$, we end up with two similarities vs. differences ratio values.
+We compute the arithmetic mean between these two values to obtain a summary feature for the cartridge case pair as a whole:
+$$
 r_{\text{full}} = \frac{1}{2}(r_A + r_B).
-\end{align*}
-We expect $r_{\text{full}}$ to be large for matching pairs compared to non-matching pairs.
-That is, truly matching pairs will have more similarities than differences.
+$$
+We assume that the **full-scan similarities vs. differences ratio** will be larger for matching cartridge case pairs than non-matches.
 
-We also calculate features based on the ratio for cell comparisons $t = 1,...,T_d$, $d = A,B$.
-Let $r_{d,t}$ denote the ratio for cell comparison $t$ in direction $d$.
-We consider the \textbf{average} and \textbf{standard deviation of the cell-based similarities vs. differences ratio}:
-\begin{align*}
-\bar{r}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} r_{d,t} \\
-s_{\text{cell}, r} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} (r_{d,t} - \bar{r}_{\text{cell}})^2}.
-\end{align*}
-We expect $\bar{r}_{\text{cell}}$ and $s_{\text{cell}, r}$ to be large for matching cartridge case pairs relative to non-match pairs.
+As another source of features, we consider the size of $TRUE$-valued neighborhoods in the $cond$ matrix $|A - B^*| > \tau$, which is the logical complement of the $cond$ matrix used to compute $r_{\text{full}}$.
+An example of one such matrix can be seen on the left side of \autoref{fig:filterLabeling}.
+We consider each neighborhood as a set of adjacent elements, $S$, that all have the same value.
+Two elements are "adjacent" if one of their indices differs by 1 (this is a 4-neighbor or "Rook's" scheme).
+We use a connected components labeling algorithm [@hesselink_concurrent_2001] to identify neighborhoods that all have the value $TRUE$ in $|A - B^*| > \tau$.
+The middle of \autoref{fig:filterLabeling} shows an example of neighborhood regions distinguished by fill color.
+Using this procedure in both comparison directions, we obtain multiple neighborhoods that we distinguish notationally using subscripts: $\pmb{S}_d = \{S_{d,1}, S_{d,2}, ..., S_{d, l} : l = 1,...,L_d\}$ where $L_d$ is the total number of labeled $TRUE$-valued regions in direction $d \in \{A,B\}$.
 
-Another aspect of the $cond$ matrix we consider is the size of the individual filtered regions.
-For two matching cartridge cases, we expect that there are few differences compared to similarities \emph{and} that the different regions are relatively small.
-We use a connected components labeling algorithm detailed in \citet{Hesselink2001} to identify individual "neighborhoods" of filtered elements \citep{imager}.
-More precisely, the algorithm returns a set of sets $\pmb{S}_d = \{S_{d,1},S_{d,2},...,S_{d,L_d}\}$ where each $S_{d,l}$ is a set of indices of the $cond$ matrix that have a value of $TRUE$ and are connected by a chained-together sequence of 4 (Rook's) neighborhoods.
-The right side of \autoref{fig:filterLabeling} shows each $S_{d,l}$ distinguished by different fill colors, $l = 1,...,L_d$.
+Considering the size of each labeled region on the right side of \autoref{fig:filterLabeling}, we see that the distribution is heavily right-skewed with the majority of comparisons being relatively small - less than 1,000 square microns.
+If we associate the $TRUE$ values of $|A - B^*| > \tau$ with elements where $A$ and $B^*$ are the most "different," then it is reasonable to assume that the size of individual $TRUE$-valued regions would be small for a matching pair.
+In other words, that there wouldn't be large regions where $A$ and $B^*$ are different if they truly match.
 
-```{r,include=FALSE,cache = FALSE}
-load("data/compData_fullScans.RData")
+To compute numerical features based on this assumption, we consider the average and standard deviation of the blob sizes across the two comparison directions:
 
-scanA <- compData_fullScans %>%
-  filter(direction == "comparison_refToTarget") %>%
-  pull(cellHeightValues) %>%
-  .[[1]]
-
-scanBStar <- compData_fullScans %>%
-  filter(direction == "comparison_refToTarget") %>%
-  pull(alignedTargetCell) %>%
-  .[[1]]
-
-scanA$surface.matrix <- (scanA$surface.matrix*scanA$cmcR.info$scaleByVal + scanA$cmcR.info$centerByVal)
-
-scanBStar$surface.matrix <- (scanBStar$surface.matrix*scanBStar$cmcR.info$scaleByVal + scanBStar$cmcR.info$centerByVal)
-
-compPlt <- impressions::x3p_comparisonPlot(
-  x3p1 = scanA,
-  x3p2 = scanBStar,
-  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
-                 "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
-  labelSize = 2.5,
-  legendLength = grid::unit(4,"in"),
-  legendHoriz = -1.3,
-  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
-
-plt1 <- ggplot_build(compPlt$patches$plots[[3]])
-
-plt1 <- plt1$data[[2]] %>%
-  ggplot(aes(x=x,y=y,fill=fill)) +
-  geom_raster() +
-  scale_fill_identity() +
-  coord_fixed(expand = FALSE) +
-  theme_void() +
-  geom_path(data = plt1$data[[4]],
-            aes(x=x,y=y,group=group),
-            size = .2,
-            colour = "gray40",
-            inherit.aes = FALSE)
-
-scanFilterBinarized <- scanA %>% 
-  impressions::x3p_elemAverage(scanBStar) %>%
-  impressions::x3p_to_dataFrame() %>%
-  mutate(value = (abs(c({scanA$surface.matrix - scanBStar$surface.matrix})) > x3p_sd(scanA,scanBStar)))
-
-plt2 <- scanFilterBinarized %>%
-  ggplot(aes(x=x,y=y,fill=value)) +
-  geom_raster() +
-  scale_fill_manual(values = c("black","white"),na.value = "gray65") +
-  coord_fixed(expand = FALSE) +
-  theme_void() +
-  theme(legend.position = "none")
-
-
-scanFilterLabeled <- scanFilterBinarized %>%
-  mutate(x = x + 1,y = y + 1,
-         value = ifelse(!value | is.na(value),0,1)) %>%
-  imager::as.cimg() %>%
-  imager::label() %>%
-  as.data.frame() %>%
-  mutate(value = factor(value))
-
-plt3 <- scanFilterLabeled %>%
-  ggplot(aes(x=x,y=y,fill=value)) +
-  geom_raster() +
-  coord_fixed(expand = FALSE) +
-  theme_void() +
-  theme(legend.position = "none") +
-  scale_fill_manual(values = c("gray65",sample(RColorBrewer::brewer.pal(12,"Paired"),size = length(unique(scanFilterLabeled$value)) - 1,replace = TRUE)))
-
-plt <- (plt1 | plt2 | plt3) & theme(panel.border = element_rect(colour = "black",fill = NA))
-```
-
-```{r,include=FALSE}
-ggsave(plot = plt,filename = "figures/filterLabeling.png")
-knitr::plot_crop("figures/filterLabeling.png")
-```
-
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:filterLabeling} (Left) After aligning two scans, we filter regions that are "different" from each other, meaning the absolute difference between surface values is larger than some threshold. (Middle) We binarize the scan into "filtered" or "non-filtered" regions - shown in white and black, respectively. (Right) Using a connected components labeling algorithm, we identify connected "neighborhoods" of filtered elements. We assume that these neighborhoods will be small, on average, if comparing truly matching cartridge cases.'}
-knitr::include_graphics("figures/filterLabeling.png")
-```
-
-We calculate the following features using the full-scan labeled neighborhoods:
 \begin{align*}
 \overline{|S|}_{\text{full}} &= \frac{1}{L_A + L_B} \sum_{d \in \{A,B\}} \sum_{l=1}^{L_d} |S_{d,l}| \\
 s_{\text{full},|S|} &= \sqrt{\frac{1}{L_A + L_B - 1} \sum_{d \in \{A,B\}} \sum_{l=1}^{L_d} (|S_{d,l}| - \overline{|S|}_{\text{full}})^2}
 \end{align*}
-where $|S_{d,l}|$ is the cardinality of $S_{d,l}$.
-We assume that the \textbf{average} and \textbf{standard deviation of the full-scan neighborhood sizes} will be small for matching cartridge case  pairs relative to non-matching pairs.
-That is to say, we assume that the the regions of $A$ and $B$ that are different will all be small, on average, and vary little in size.
-This assumption is appropriate assuming that the breech face leaves consistent markings on fired cartridge cases.
 
-Again, we extend our notation to accommodate individual cells.
-Let $\pmb{S}_{d,t} = \{S_{d,t,1},...,S_{d,t,L_{d,t}}\}$ denote the set of labeled neighborhoods for a cell $t = 1,...,T_d$, $d = A,B$.
-We calculate the per-cell average and standard deviation of the labeled neighborhood cell size:
+where $|S_{d,l}|$ is the number of elements (cardinality) in set $S_{d,l}$, $l = 1,...,L_d$ and $d = A,B$.
+We assume that the **average** and **standard deviation of the full-scan neighborhood sizes** will be small for matching pairs compared to non-matching pairs.
+
+As a final source of features, we consider the correlation $cor_{d,\text{full},\text{diff}}$ between the elements of the matrices $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ for $d = A$ and $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$ for $d = B$.
+If $A$ and $B$ are truly matching, then we might assume that differences in the height values occur merely because of variability in the amount of contact between the cartridge case and breech face across multiple fires of a single firearm.
+\autoref{fig:matchingCellDifferenceCorrelation} shows an example of the "filtered differences" between two cells $\mathcal{F}_{|A_t - B_t^*| > \tau}(A_t)$ and $\mathcal{F}_{|A_t - B_t^*| > \tau}(B_t^*)$.
+Although the surface values in the cell on the right appear to be shifted up relative to the values from the cell on the left, as evidenced by the generally darker shades of orange, the trends in the surface values are similar.
+This is reflected in the relatively high correlation value of 0.84 between these two filtered cells.
+
+Similar to the other features, we use the average "differences correlation" value $cor_{d,\text{full},\text{diff}}$ across the two comparison directions as a feature:
+
+$$
+cor_{\text{full},\text{diff}} = \frac{1}{2}\left(cor_{A,\text{full},\text{diff}} + cor_{B,\text{full},\text{diff}}\right).
+$$
+
+We assume that the **full-scan differences correlation** will be large for matches compared to non-matches.
+
+So far, we've discussed visual diagnostic features for full scan comparisons.
+We also compute summary features based on the visual diagnostics applied to the cell-based comparisons.
+Letting $A_t$ and $B_t^*$ denote a pair of aligned cells from scans $A$ and $B^*$, respectively, we extend the full scan notation introduced above by adding $t$ subscripts.
+
+We compute the **average** and **standard deviation of the cell-based similarities vs. differences ratio** values:
+\begin{align*}
+\bar{r}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} r_{d,t} \\
+s_{\text{cell}, r} &= \sqrt{\frac{1}{T_A + T_B - 1} \sum_{d \in \{A,B\}} \sum_{t = 1}^{T_d} (r_{d,t} - \bar{r}_{\text{cell}})^2},
+\end{align*}
+
+We also calculate the per-cell average and standard deviation labeled neighborhood size:
 \begin{align*}
 \overline{|S|}_{d,t} &= \frac{1}{L_{d,t}} \sum_{l=1}^L |S_{d,t,l}| \\
-s_{d,t,|S|} &= \sqrt{\frac{1}{L_{d,t} - 1} \sum_{l=1}^{L_{d,t}} (|S_{d,t,l}| - \overline{|S|}_{\text{cell},d,t})^2}.
+s_{d,t,|S|} &= \sqrt{\frac{1}{L_{d,t} - 1} \sum_{l=1}^{L_{d,t}} (|S_{d,t,l}| - \overline{|S|}_{\text{cell},d,t})^2},
 \end{align*}
-
-We assume that the cell-based $\overline{|S|}_{d,t}$ and $s_{d,t,|S|}$ will be small, on average, for truly matching cartridge cases.
-Consequently, we use the sample average of these as features:
+and average these values to features for the pair as a whole:
 \begin{align*}
 \overline{|S|}_{\text{cell}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} \overline{|S|}_{d,t} \\
-\bar{s}_{\text{cell},|S|} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} s_{d,t,|S|}
+\bar{s}_{\text{cell},|S|} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} s_{d,t,|S|}.
 \end{align*}
-We assume that the \textbf{average cell-wise neighborhood size} and the \textbf{average standard deviation of the cell-wise neighborhood sizes} will be small for matching cartridge case pairs relative to non-match pairs.
+We assume that the **average cell-wise neighborhood size** and the **average standard deviation of the cell-wise neighborhood sizes** will be small for matching pairs relative to non-match pairs.
 
-<!-- s^2_{|S|_{t,\cdot}} &= \frac{1}{T - 1} \sum_{t=1}^T \left(\overline{|S|}_{t,\cdot} - \overline{|S|}_{\cdot,\cdot}\right)^2 \\ -->
-<!-- s^2_{s^2_{|S|, t}} &= \frac{1}{T-1} \left(s^2_{|S|, t} - \bar{s}^2_{|S|,\cdot}\right)^2. -->
+Finally, we compute the **average cell-based differences correlation** across all cells in both comparison directions:
+\begin{align*}
+\overline{cor}_{\text{cell},\text{diff}} &= \frac{1}{T_A + T_B} \sum_{d \in \{A,B\}} \sum_{t=1}^{T_d} cor_{d,t,\text{diff}}.
+\end{align*}
 
 \autoref{tab:visualDiagnosticFeatures} summarizes the nine features based on visual diagnostics.
+A deeper exploration of these features can be found in Chapter 3.
 This concludes our explanation of the ACES feature set.
 Next, we use the 19 ACES features to train and test classifier models.
 
@@ -905,12 +822,6 @@ $\bar{s}_{\text{cell},|S|}$ & Average standard deviation of the cell-wise neighb
 \end{table}
 ```
 
-<!-- \hline -->
-<!-- $s_{cor_{diff,\cdot}}^2$ & Standard deviation of the cell pairwise-complete correlation values \\ -->
-<!-- \hline -->
-<!-- $s^2_{|S|_{t,\cdot}}$ & Cell-based, sample variance of the sample averages of labeled neighborhood sizes \\ -->
-<!-- \hline -->
-<!-- $s^2_{s^2_{|S|, t}}$ & Cell-based, sample variance of the sample variances of the labeled neighborhood sizes\\ -->
 
 ## Scoring
 
@@ -919,15 +830,14 @@ We randomly split the data into 10 firearms for training and 15 firearms for tes
 This resulted in a training data set of 210 cartridge cases, $\binom{210}{2} = 21,945$ pairwise comparisons, and a testing set of 300 cartridge cases, $\binom{300}{2} = 44,850$ pairwise comparisons.
 Because we consider every pairwise comparison between these scans, there is a relatively large class imbalance between matches and non-matches in these data sets.
 Specifically, non-matching comparisons make up 19,756 of the 21,945 (90.0%) training comparisons and 41,769 of the 44,850 (93.1%) testing comparisons.
-<!-- Our experimentation with upsampling matching comparisons or downsampling non-matching comparisons did not yield noticeably different results compared to what we present below. -->
 
-We use 10-fold cross-validation repeated thrice \citep{caret} to train two binary classifiers based on a logistic regression and a random forest \citep{breiman,randomForest}.
+We use 10-fold cross-validation repeated thrice [@caret] to train two binary classifiers based on a logistic regression and a random forest [@breiman;  @randomForest].
 These models predict the probability that a pair of cartridge cases match.
 Then, the model classifies the pair as a match or non-match depending on whether the match probability exceeds a set threshold.
 On top of the tunable parameters of each model (e.g., the DBSCAN parameters $\epsilon$ and $minPts$), we treat this threshold as a parameter to be optimized.
 
-Models trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class \citep{Fernndez2018}, which in our case are non-matches.
-An optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values \citep{James2013}.
+Models trained to maximize accuracy on imbalanced data often exhibit a "preference" for classifying new observations as the majority class [@Fernndez2018], which in our case are non-matches.
+An optimization criterion commonly used for imbalanced data is to select the model that maximizes the area under the Receiver Operating Characteristic (ROC) curve, which measures the performance of a model under different threshold values [@James2013].
 The model that maximizes this area, commonly abbreviated AUC, is one that performs best under a variety of threshold values relative to the other models - this consistency is a desired trait.
 Using the ROC curve, we choose the match probability threshold that balances the true negative and true positive (equivalently, the false positive and false negative) rates on the training data.
 
@@ -935,6 +845,7 @@ Once we have a trained model, we use it to predict the match probability and cla
 However, rather than referring to the number returned by the trained model as a "probability," which implicitly assumes a homogeneous source population between the training and test cartridge cases, we simply call the number a "score" where larger values correspond with more similar cartridge cases.
 We compute this score for the pairwise comparisons in the test data as a means of comparing the generalizability of the various models.
 The following section details the results of this cross-validation training/testing procedure.
+We refer the reader to <https://github.com/jzemmels/jdssvSubmission/tree/main/supplementary-code> for the source code used to derive these results.
 
 # Results
 
@@ -943,7 +854,7 @@ The following section details the results of this cross-validation training/test
 First, we consider results from the training procedure.
 \autoref{fig:rocPlot} shows the resulting ROC curves for four classifier models trained on the training data set.
 We consider training the logistic regression (LR) and random forest (RF) models under two feature sets: a subset of the full ACES feature set consisting of the Cluster Indicator feature $C_0$ and the six registration-based features summarized in \autoref{tab:registrationFeatures} vs. all 19 ACES features.
-We consider the "$C_0$ + Registration" subset of features to represent the features used in Congruent Matching Cells methods \citep{song_proposed_2013,zhang_convergence_2021}.
+We consider the "$C_0$ + Registration" subset of features to represent the features used in Congruent Matching Cells methods [@song_proposed_2013;  @zhang_convergence_2021].
 
 The ROC curves allow us to visually compare the behavior of these four classifiers under various score thresholds where
 curves closer to the top-left corner are preferred.
@@ -957,7 +868,7 @@ Each model has a different score threshold that yields the equal error rate, whi
 We use these thresholds to compute both the training and test classification results summarized below.
 We see that the All ACES, logistic regression model has the lowest equal error rate out of the four models with the All ACES, random forest model a close second.
 
-```{r,fig.align='center',fig.cap='\\label{fig:rocPlot} ROC curves for logistic regression (LR) and random forest (RF) models trained using two feature sets - all 19 ACES features vs. a subset of seven ACES features. On the left, we zoom into the top-left corner of the ROC curve plot to better distinguish between the four curves. We see that the models trained on the full ACES feature set have higher area under the curve (AUC) and lower equal error rate (EER) values than on the subset. We also show the score classification cutoffs (Thresh.) used for each of the four models to achieve the equal error rate values.',fig.pos="htbp",out.width="\\textwidth"}
+```{r rocPlot,fig.align='center',fig.cap='ROC curves for logistic regression (LR) and random forest (RF) models trained using two feature sets - all 19 ACES features vs. a subset of seven ACES features. On the left, we zoom into the top-left corner of the ROC curve plot to better distinguish between the four curves. We see that the models trained on the full ACES feature set have higher area under the curve (AUC) and lower equal error rate (EER) values than on the subset. We also show the score classification cutoffs (Thresh.) used for each of the four models to achieve the equal error rate values.',fig.pos="htbp",out.width="\\textwidth"}
 knitr::include_graphics("images/rocPlot.png")
 ```
 
@@ -966,7 +877,7 @@ knitr::include_graphics("images/rocPlot.png")
 \autoref{fig:trainTestAccuracy} summarizes the training and testing accuracy, true negative and true positive rates for five binary classifiers.
 We distinguish between the training and testing results using gray and black points/line segments, respectively, which allows us to assess the generalizability of the various models.
 The conclusions drawn from \autoref{fig:trainTestAccuracy} are intended to primarily be qualitative and comparative across models.
-\autoref{tab:trainDataResults} and \autoref{tab:testDataResults} in the Appendix provide a numerical summary of these results.
+\autoref{tab:trainDataResults} and \autoref{tab:testDataResults} in the **[Appendix][Appendix: Supplementary Information]** provide a numerical summary of these results.
 
 ```{r,fig.align='center',fig.cap='\\label{fig:trainTestAccuracy} We summarize classification accuracy, true negative, and true positive rates for both the training and testing results, represented as gray and black points/lines respectively, for five binary classifier models. Our primary interest is the test data results, but visualizing the training data results allows us to assess the generalizability of the models after training. In the first row, we consider a classifier based on a single feature, the Cluster Indicator feature $C_0$, as a baseline. The remaining rows show results from training/testing classifiers based on a random forest (RF) and logistic regression (LR) under various feature sets and optimization critieria. The second row shows results based on a subset of seven features from the ACES feature set while the third row shows results using all 19 ACES features.',fig.pos="htbp",out.width="\\textwidth"}
 knitr::include_graphics("images/classifResultsPlt_trainTest.png")
@@ -980,14 +891,14 @@ Despite lower true positive rates, the overall accuracy between the training and
 
 In the first row, we consider a baseline classifier based solely on the Cluster Indicator feature $C_0$.
 Namely, if the DBSCAN algorithm finds clusters in the cell-based translations from both directions of a cartridge case comparison, then that pair is classified as a match.
-This is analogous to the classification rule used in \citet{zhang_convergence_2021}.
+This is analogous to the classification rule used in @zhang_convergence_2021.
 We optimized this $C_0$-based classifier by choosing the DBSCAN parameters $\epsilon$ and $minPts$ that resulted in the most balanced training true negative and true positive rates, resulting in $\epsilon = 15$ and $minPts = 8$.
 The optimized $C_0$-based classifier performs considerably worse across the three measures compared to the other models with test accuracy 89.44%, true negative rate 89.64%, and true positive rate 86.82%.
 
 The second row of \autoref{fig:trainTestAccuracy} summarizes results from training the two classifier models on a subset of the full ACES feature set consisting of the Cluster Indicator feature $C_0$ and the six registration-based features summarized in \autoref{tab:registrationFeatures}.
-We consider this subset of features to represent the features used in Congruent Matching Cells methods \citep{song_proposed_2013,zhang_convergence_2021}.
+We consider this subset of features to represent the features used in Congruent Matching Cells methods [@song_proposed_2013;  @zhang_convergence_2021].
 In general, we see that the logistic regression (LR) and random forest (RF) models perform comparable to each other in accuracy, true negative, and true positive rates.
-Despite the fact that the models in the second and third rows were selected based on balancing the training true negative and true positive rates, we note that these rates for the test data are not as well-balanced; namely, the true negative rates still tend to be larger than the true positive rates.
+Despite the fact that the models in the second and third rows were selected based on balancing the training true negative and true positive rates, we note that these rates for the test data are not as well-balanced;  namely, the true negative rates still tend to be larger than the true positive rates.
 Below, we explore this discrepancy by analyzing the contribution of various test firearms towards the true positive rates.
 
 The third row of \autoref{fig:trainTestAccuracy} summarizes the classification results based on using all 19 ACES features.
@@ -1009,9 +920,9 @@ However, there is a surprising number of matching comparisons that also have a l
 knitr::include_graphics("images/testProbs_plt.png")
 ```
 
-To explain the matching comparisons with low similarity scores, we visualize in \autoref{fig:testProbs_byFirearm} the predicted similarity scores for matching test comparisons distinguished by the 15 test firearm ID. 
+To explain the matching comparisons with low similarity scores, we visualize in \autoref{fig:testProbs-byFirearm} the predicted similarity scores for matching test comparisons distinguished by the 15 test firearm ID. 
 We see that the firearm T has far more matching comparisons with low similarity scores compared to the other 14 test firearms.
-This is further underscored by the right side of the \autoref{fig:testProbs_byFirearm}, which shows the ratio of misclassifications to total comparisons for every pair of test firearms based on the same logistic regression model used in \autoref{fig:testProbs}.
+This is further underscored by the right side of the \autoref{fig:testProbs-byFirearm}, which shows the ratio of misclassifications to total comparisons for every pair of test firearms based on the same logistic regression model used in \autoref{fig:testProbs}.
 The main diagonal shows the false negative misclassifications while the off-diagonal shows the false positives.
 We use blank tiles for comparisons where 0 misclassifications occurred.
 We see that the false negative rate for firearm T of 27.1% is far greater than that of other firearm pairs.
@@ -1019,14 +930,14 @@ The 95 false negative firearm T comparisons comprise 76% of all 125 false negati
 In sum, the model performs distinctly worse at identifying matching comparisons from firearm T compared to the other firearms, which partially explains the lower test true positive rates noted in \autoref{fig:trainTestAccuracy}.
 Upon visual inspection of the scans from firearm T, we noted a lack of consistent markings on their surfaces, which isn't the case for scans from other test firearms.
 
-```{r,fig.align='center',fig.cap='\\label{fig:testProbs_byFirearm} (Left) A dot plot of the predicted similarity scores for the match comparisons in the test set based on a logistic regression model, separated by firearm. We see that firearm T has more matching comparisons with low similarity scores than the other test firearms. (Right) Misclassifications divided by total number of pairwise comparisons for each pair of test firearms based on the same logistic regression model. We do not show comparisons with 0 misclassifications. We note that the proportion of misclassified matching comparisons from firearm T of 27.1\\% is much higher than that of other comparisons.',fig.pos="htbp",out.width="\\textwidth"}
+```{r,fig.align='center',fig.cap='\\label{fig:testProbs-byFirearm} (Left) A dot plot of the predicted similarity scores for the match comparisons in the test set based on a logistic regression model, separated by firearm. We see that firearm T has more matching comparisons with low similarity scores than the other test firearms. (Right) Misclassifications divided by total number of pairwise comparisons for each pair of test firearms based on the same logistic regression model. We do not show comparisons with 0 misclassifications. We note that the proportion of misclassified matching comparisons from firearm T of 27.1\\% is much higher than that of other comparisons.',fig.pos="htbp",out.width="\\textwidth"}
 knitr::include_graphics("images/misclassifPlt.png")
 ```
 
 ## Feature Importance
 
 Finally, we consider the relative importance of the 19 ACES features by fitting 10 replicate random forests using the full ACES feature set with fixed random seeds.
-For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model \citep{hastie_elements_2008}.
+For each replicate, we measure a variable's importance using the Gini Index, which measures the probability of making a misclassification for a given model [@hastie_elements_2008].
 A larger decrease in the Gini Index corresponds with higher importance.
 \autoref{fig:rfVarImpPlt} shows the distribution of the mean Gini Index decrease for the 19 ACES features.
 Noting the log scale on which these points are plotted, we see that the most important features consist of a combination of density-based features $C_0$, $C$, and $\Delta_{\text{trans}}$ and registration-based correlation features $\overline{\text{cor}}_{\text{cell}}$ and $\text{cor}_{\text{full}}$.
@@ -1041,11 +952,11 @@ knitr::include_graphics("images/varImpPlt.png")
 
 ## Comparison to CMC Methodology
 
-We use a $C_0$-based classifier as a baseline because it is analogous to the classification rule proposed in \citet{zhang_convergence_2021}.
-Similarly, the cell-based registration features are based on the the same cell-based comparison procedure used in \citet{song_proposed_2013} and summarized in \autoref{alg:cellComparison}.
+We use a $C_0$-based classifier as a baseline because it is analogous to the classification rule proposed in @zhang_convergence_2021.
+Similarly, the cell-based registration features are based on the the same cell-based comparison procedure used in @song_proposed_2013 and summarized in cell-based comparison.
 Together, we consider $C_0$ and the registration-based features a fusion of previously proposed cartridge case similarity scoring algorithms.
-This is why we fit separate classifiers based on these features for the training and testing results shown in \autoref{fig:testProbs_byFirearm}.
-\autoref{tab:previousWorkComparison} summarizes the similarities between the ACES algorithm and the algorithms proposed in \citet{zhang_convergence_2021} and \citet{song_proposed_2013}.
+This is why we fit separate classifiers based on these features for the training and testing results shown in \autoref{fig:testProbs-byFirearm}.
+\autoref{tab:previousWorkComparison} summarizes the similarities between the ACES algorithm and the algorithms proposed in @zhang_convergence_2021 and @song_proposed_2013.
 Another key difference between ACES and both of the previous algorithms is the training/testing procedure used to optimize and validate model parameters.
 
 ```{=tex}
@@ -1063,18 +974,12 @@ Original Paper & Similarities to ACES & Original Use & ACES Use \\
 \end{table}
 ```
 
-\autoref{tab:classifMethodComparison} shows the test classification error rates of the Congruent Matching Cells (CMC) algorithm proposed in \citet{song_proposed_2013}, the $C_0$-based classifier like the one proposed in \citet{zhang_convergence_2021}, and the All ACES logistic regression model.
-We obtained the CMC results by applying the implementation available in the cmcR R package \citep{cmcR} on the same test data set used in the Results section.
-We selected CMC parameters based on which maximized the AUC across various CMC count threshold on the training data, which resulted in translation thresholds $T_x = T_y = 25$ pixels, rotation threshold $T_\theta = 6^{\circ}$, correlation threshold $T_{CCF} = 0.45$.
-The CMC results in \autoref{tab:classifMethodComparison} summarize the classification error rates based on selecting a CMC count threshold that achieved the most balanced false positive and false negative error rates on the training data, which was $T_{CMC} = 3$.
+\autoref{tab:classifMethodComparison} shows the test classification error rates of the Congruent Matching Cells (CMC) algorithm proposed in @song_proposed_2013, the $C_0$-based classifier like the one proposed in @zhang_convergence_2021, and the two ACES logistic regression models selected to balance the true negative and true positive rates and maximize the classification accuracy.
+We obtained the CMC results by applying the implementation available in the `cmcR` R package [@cmcR] on the same test data set used in the Results section.
+We used the optimization procedure described in @Zemmels2023 to select CMC parameters.
 The $C_0$-based error rates are the same as those shown in the first row of \autoref{fig:trainTestAccuracy}.
-
-We see that the only $C_0$-based classifier has the highest overall error rate of 9.5%, although this consists of far more balanced false positive and false negative error rates compared to the CMC method.
-Despite selecting CMC model parameters to maximize the AUC and balancing the false positive and false negative error rates, the CMC method misclassifies truly matching cartridge case at a much higher rate than truly non-matching pairs.
-In our experimentation, we noticed that many truly matching cartridge case pairs were assigned low CMC count similarity scores, which justifies the error rate imbalance in \autoref{tab:classifMethodComparison}.
-The logistic regression model trained on the full ACES data set achieves the lowest overall, false positive, and false negative error rates across the three classification methods.
-We note that there were other combinations of parameters for the CMC and $C_0$-based classifiers resulting in higher overall accuracy.
-However, the improved accuracy were due to a strong tendency to classify pairs as non-matches (the majority class in the training data), so we didn't feel it appropriate to include in the final results.
+The ACES logistic regression models perform better than the other classifiers on this test data set, most notably when compared to the CMC method in identifying matching cartridge case pairs.
+Interestingly, the $C_0$-based classifier has a lower false negative error rate compared to the All ACES-trained, maximum accuracy logistic regression model, although it has a much higher false positive rate.
 
 ```{=tex}
 \begin{table}[htbp]
@@ -1086,7 +991,7 @@ CMC method &  3.9 & 2.3 & 25.8 \\
 Only $C_0$ feature & 9.5 & 9.6 & 9.2 \\
 ACES LR & 2.3 & 2.2 & 3.8 \\
 \end{tabular}
-\caption{Testing classification error, false positive, and false negative rates for four types of classifier models. The CMC method results are derived from the implementation available in \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}. The last row shows results from the Logistic Regression classifier trained on the all 19 ACES features.}
+\caption{Testing classification error, false positive, and false negative rates for four types of classifier models. The CMC method results are derived from the implementation available in the \texttt{cmcR} R package \citet{cmcR}. The "Only $C_0$ feature" classifier is analogous to the classification rule used in \citet{zhang_convergence_2021}. The last row shows results from the Logistic Regression classifier trained on the all 19 ACES features.}
 \label{tab:classifMethodComparison}
 \end{table}
 ```
@@ -1099,72 +1004,10 @@ We are bound to find similarities if that is all we look for, so it is worthwhil
 The visual diagnostic features accomplish this by partitioning scans into similar and different regions.
 The similarities vs. differences ratio and labeled neighborhood size features measure how extreme the differences are between two scans while the differences correlation features determine whether there are similarities among the different regions.
 
-This direct comparison of the surface values aligns with the Theory of Identification which says that an examination should involve the comparison of the "relative height or depth, width, curvature and spatial relationship" of cartridge case impressions \citep{AFTE1992}.
+This direct comparison of the surface values aligns with the Theory of Identification which says that an examination should involve the comparison of the "relative height or depth, width, curvature and spatial relationship" of cartridge case impressions [@AFTE1992].
 Comparison algorithms like ACES will inevitably be used to augment the opinion of a forensic examiner, who may need to present algorithmic results to judges or juries as part of their expert testimony.
 As such, it is important that forensic examiners are able to interpret and explain the results of a comparison algorithm.
 The visual diagnostic features are useful for explaining the behavior of the algorithm in a manner that aligns with more traditional identification theory.
-
-## Sensitivity to Parameter Choice
-
-When selecting the optimal models presented in \autoref{fig:trainTestAccuracy}, we performed a good deal of searching across various parameter choices.
-For example, given the relative importance of the density-based features illustrated in \autoref{fig:rfVarImpPlt}, we were interested in assessing the sensitivity of the various classifier models to DBSCAN parameter choice.
-\autoref{fig:aucSensitivity} shows a heat map of AUC values for the four combinations of feature group and classifier model shown in \autoref{fig:trainTestAccuracy} across a grid of DBSCAN parameter values $\epsilon \in \{3,...,15\}$ and $minPts \in \{3,...,10\}$.
-Darker tiles correspond with higher AUC values, which in turn are associated with more preferred models.
-We draw a black square around the specific $(\epsilon, minPts)$ values resulting in the maximum AUC for each of the models (which we also show in \autoref{fig:rocPlot}).
-Interestingly, we see that all four models achieve optimum AUC for smaller values of $\epsilon$ and $minPts$.
-Larger values of $\epsilon$ will naturally lead to larger clusters as the $\epsilon$-neighborhood around each point grows.
-It makes sense then for $\epsilon$ to remain small so as to avoid the formation of false positive clusters.
-Conversely, larger values of $minPts$ will naturally lead to fewer clusters, albeit of larger size.
-The fact that the optimal $\epsilon$ and $minPts$ are both relatively small suggests that matching comparisons may not have many cells that "agree" on a registration, but the cells that do agree form a strong consensus (i.e., form tight clusters).
-
-We also note the variability in the AUC values across the DBSCAN parameter space.
-Specifically, we see that the "$C_0$ + Registration" models achieve the highest AUCs along a set of values in the bottom-left corner - where $\epsilon \approx minPts$ for $\epsilon,minPts < 10$.
-In our experimentation, we noticed that these $\epsilon, minPts$ values are also where the cluster indicator $C_0$ feature has highly-ranked importance (as is the case in \autoref{fig:varImp_dbscan}).
-Both the AUC values and the variable importance of $C_0$ decrease as either $\epsilon$ or $minPts$ increase, which indicates that the $C_0$ + Registration models rely heavily on $C_0$ to distinguish between matching and non-matching comparisons.
-Comparatively, we see that the AUC values for the "All ACES" models are more consistently high across the parameter space, indicating a robustness to parameter choice.
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:aucSensitivity} A heat map of AUC values associated with four classifier models across a grid of values for the two DBSCAN parameter $\\epsilon$ and $minPts$. Darker tiles correspond with higher AUC. The four models are a combination of two feature groups ($C_0$ + Registration vs. All ACES) and two models (Random Forest and Logistic Regression). The "All ACES"-trained models have higher and more consistent AUCs compared to the "$C_0$ + Registration"-trained models.'}
-knitr::include_graphics("images/dbscanAUC_sensitivity.png")
-```
-
-To better understand the behavior of the AUC values in \autoref{fig:aucSensitivity}, consider \autoref{fig:varImp_dbscan} showing the Mean Gini Decrease for each of the 19 ACES features across the grid of $\epsilon \in \{3,...,15\}$ and $minPts \in \{3,...,10\}$ values.
-We see that the density Cluster Indicator $C_0$, Cluster Size $C$, and  Translation Difference $\Delta_{\text{trans}}$ have high variable importance for some combinations of $\epsilon$ and $minPts$, but are generally less consistent than the registration cell-based and full scan correlations $\overline{cor}_{\text{cell}}$ and $cor_{\text{full}}$.
-This implies that the density features can be highly informative under optimal conditions, yet quickly lose importance under sub-optimal conditions.
-In our experimentation, we noticed that other ACES features "take up the mantle" when $C_0$ or $C$ have low importance, which explains the relative stability in AUC values observed in the "All ACES"-trained models shown in \autoref{fig:aucSensitivity}.
-
-The relationship between $C_0$ and $C$ (first two plots in the first row) is noteworthy by the sharp boundary defined by the line $minPts = \epsilon$.
-Above this line, when $minPts > \epsilon$, we see that $C_0$ is considered more important than $C$.
-In other words, as the minimum size required to be classified as a cluster ($minPts$) and the neighborhood radius ($\epsilon$) both become stricter, there will naturally be fewer clusters formed.
-In these instances, knowing whether a cluster is formed is more informative than the size of that cluster.
-However, the importance of $C_0$ below the line, when $minPts < \epsilon$, is seemingly replaced by $C$ rising in importance.
-That is, when $minPts$ and $\epsilon$ are less strict, then more clusters will form and the actual size of the cluster becomes more informative than the fact that it exists.
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:varImp_dbscan} A heat map of variable importance measures for the 19 features in the ACES data set across a grid of values for the two DBSCAN parameter $\\epsilon$ and $minPts$. Darker tiles correspond with higher importance. As in \\autoref{fig:rfVarImpPlt}, we visualze the importance measures on a log-transformed color scale to more clearly see variability among smaller values. We see that features like the Cell-Based Cluster Indicator $C_0$ and Cell-Based Cluster Size $C$ have inconsistent importance measures across the difference values of $\\epsilon$ and $minPts$ while the cell-based and full scan correlation features $\\overline{cor}_{\\text{cell}}$ and $cor_{\\text{full}}$ have more consistent importance."}
-knitr::include_graphics("images/varImp_dbscan.png")
-```
-
-The $\epsilon$ and $minPts$ values are not the only parameters that can be tuned.
-We also computed the ACES features using two different cell grids: $4 \times 4$ and $8 \times 8$.
-Each cell in the $4 \times 4$ grid captures a larger portion of the cartridge case's surface compared to the $8 \times 8$ grid, which would presumably be useful for the visual diagnostic-based features.
-However, the $8 \times 8$ grid has the benefit of having more cells with which to measure consensus using the registration and density-based features.
-Our experimentation showed that the $4 \times 4$ cell grid features resulted in categorically better classification results compared to the $8 \times 8$ features.
-Throughout this paper, we present the $4 \times 4$ results.
-
-One would expect that having more cells would make it easier to measure the consensus.
-However, even the density-based features, such as the cluster size feature $C$, had better separation between matching and non-matching comparisons when the $4 \times 4$ cell grid was used compared to the $8 \times 8$ grid.
-Further, performing classification using a combination of the $4 \times 4$ and $8 \times 8$ features actually led to *lower* overall test accuracy compared to just using the $4 \times 4$ grid.
-We chalk this outcome up to the specific cell-based registration procedure we used.
-Recall from \autoref{alg:registration} that we first perform a pre-registration using the full scans and a rotation grid $\pmb{\Theta}$.
-Using the full scan-estimated rotation $\theta_d^*$, we then perform the cell-based comparison procedure \autoref{alg:cellComparison} using a limited rotation grid $\pmb{\Theta}_d' = \{\theta_d^* - 2^\circ, \theta_d^* - 1^\circ,...,\theta_d^* + 2^\circ\}$.
-
-To save on computational time, rather than comparing each source cell to the full target scan, we compare it to a slightly larger region that is located in the same position in the target scan ($1.1 \times$ the side length of the source cell).
-Assuming the full scan registration was successful, a source cell isn't allowed to "move" very far in this region to register.
-This in contrast to, for example, the original CMC methodology proposed in \citet{song_proposed_2013} where each source cell is compared to a region in the target scan that is much larger, 2 or 3 times the side length.
-The consequence of our implementation is that cells, even for non-matching comparisons, tend to have registration values close to the origin (i.e., no movement), and are therefore more likely to form DBSCAN clusters compared to if we used larger target regions.
-In this case, a higher number of cells actually leads to a higher chance of forming "false positive" clusters for a non-match comparison, which is exactly what we observe from the $8 \times 8$ comparisons.
-The formation of false positive clusters is far rarer in the $4 \times 4$ cell grid case.
-We hypothesize that the $8 \times 8$ cell grid results could improve if a different target region size were used.
-However, our implementation makes sense pragmatically, since the CCF computation grows exponentially with the size of the region cell or target region, and conceptually, since the full scan registration should result in a rough alignment of two matching scans before applying the cell-based comparison with a finer rotation grid.
 
 ## Model Selection Considerations
 
@@ -1185,19 +1028,20 @@ The classification behavior of the logistic regression and classification tree m
 For example, the logistic regression model parameters can be understood in terms of the estimated increase in odds of a match.
 Paired with its comparable performance to the random forest, we propose the logistic regression model with all 19 ACES features as the preferred model that balances interpretability with accuracy.
 
+
 # Conclusion
 
 In this paper, we introduced the Automatic Cartridge Evidence Scoring (ACES) algorithm to measure the similarity between two fired cartridge cases based on their breech face impressions.
 In particular, we defined a set of 19 similarity features and used these features to train and test classifier models.
 We validated our algorithm on a set of 510 cartridge cases - the largest validation study of a cartridge case similarity scoring algorithm to-date.
-Compared to predominant algorithms like the CMC algorithm described in \citet{song_proposed_2013}, the ACES logistic regression model achieves higher test accuracy rates while having more balanced true positive and true negative rates.
+Compared to predominant algorithms like the CMC algorithm described in @song_proposed_2013, the ACES logistic regression model achieves higher test accuracy rates while having more balanced true positive and true negative rates.
 We propose a logistic regression classifier trained on the ACES feature set as a new benchmark to which future scoring methods are compared.
 
 Before the ACES algorithm can be put into practice, we must devise new stress-tests, using new ammunition and firearm combinations, to assess its robustness.
-There is also an opportunity to optimize additional parameters, such as the number of cells used in \autoref{alg:cellComparison} or parameters used in pre-processing, to measure their effects on final results.
+There is also an opportunity to optimize additional parameters, such as the number of cells used in cell-based comparison or parameters used in pre-processing, to measure their effects on final results.
 A variety of factors, such as make/model and wear of the evidence or the algorithm parameters used, affect the discriminative power of the 19 features defined in this paper.
 We view the current version of the ACES algorithm as more a foundation for future improvements than a final solution.
-We expect the ACES feature set to evolve over time; for discriminatory features to replace less informative features.
+We expect the ACES feature set to evolve over time;  for discriminatory features to replace less informative features.
 Given the gravity of the application, we stress interpretability as a guiding principle for future feature engineering and model selection.
 A misunderstood feature or result may lead a lay judge or juror to an incorrect conclusion.
 Additionally, we urge future researchers to use a train/test procedure similar to the one outlined in this paper to validate proposed methods.
@@ -1210,17 +1054,22 @@ The code and data used in this paper are available at <https://github.com/jzemme
 
 # Computational Details {.unnumbered}
 
-If necessary or useful, information about certain computational details such as version numbers, operating systems, or compilers could be included in an unnumbered section.
-Also, auxiliary packages (say, for visualizations, maps, tables, \dots) that are not cited in the main text can be credited here.
-
-The results in this paper were obtained using \proglang{R}\~4.2.2.\cite{R}
+The results in this paper were obtained using \proglang{R}\~4.2.2.\cite{Rlanguage}
 \proglang{R} itself and all packages used are available from the Comprehensive \proglang{R} Archive Network (CRAN) at \url{https://CRAN.R-project.org/}.
 
-We generated this report using the RStudio graphical user interface \citep{rstudio} a number of R packages including \proglang{knitr} \citep{knitr}, \proglang{rmarkdown} \citep{rmarkdown}, the \proglang{tidyverse} suite \citep{tidyverse}.
+We generated this report using the RStudio graphical user interface \citep{rstudio} a number of R packages including \texttt{knitr} \citep{knitr}, \texttt{rmarkdown} \citep{rmarkdown}, \texttt{imager} \citep{imager}, \texttt{caret} \citep{caret}, and the \texttt{tidyverse} suite \citep{tidyverse}.
+Information regarding the version of R and the packages used can be found below.
+
+```{r,echo=TRUE}
+sessionInfo()
+```
+
 
 # Acknowledgments {.unnumbered}
 
 This work was partially funded by the Center for Statistics and Applications in Forensic Evidence (CSAFE) through Cooperative Agreement 70NANB20H019 between NIST and Iowa State University, which includes activities carried out at Carnegie Mellon University, Duke University, University of California Irvine, University of Virginia, West Virginia University, University of Pennsylvania, Swarthmore College and University of Nebraska, Lincoln.
+
+Additionally, we would like to thank the technicians and staff at the Roy J. Carver High Resolution Microscopy Facility for collecting the topographical scans used in this paper.
 
 \bibliography{refs}
 
@@ -1231,65 +1080,16 @@ This work was partially funded by the Center for Statistics and Applications in 
 \renewcommand{\thesection}{\Alph{section}}
 ```
 
+
 # Appendix
 
-## Registration Procedure Details
+## Cell-Based Registration Details
 
-A registration is composed of a discrete translation by $(m,n) \in \mathbb{Z}^2$ and rotation by $\theta \in [-180^\circ,180^\circ]$.
-Under this transformation, the index $i,j$ maps to a new index $i^*,j^*$ by: \begin{align*}
-\begin{pmatrix} j^* \\ i^* \end{pmatrix} =
-\begin{pmatrix} n \\ m \end{pmatrix} +
-\begin{pmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{pmatrix} \begin{pmatrix} j \\ i \end{pmatrix}.
-\end{align*}
-
-The value $b_{ij}$ now occupies the index $i^*, j^*$. 
-In practice, we use *nearest-neighbor interpolation* meaning $i^*$ and $j^*$ are rounded to the nearest integer.
-<!-- \footnote{Technical note: We pad the dimensions of matrix $B$ as-needed assuming free boundary conditions (0-padding) so as to not crop-out any of the original values [cite a boundary condition reference here]. For notational simplicity, we'll refer to this padded matrix as $B$ also.} -->
-
-To determine the optimal registration, we calculate the *cross-correlation function* (CCF) between $A$ and $B$, which measures the similarity between $A$ and $B$ for every possible translation of $B$.
-Denoted $(A \star B)$, the CCF between $A$ and $B$ is a 2D array of dimension $2k - 1 \times 2k - 1$ with the $m,n$-th element given by:
-\begin{align*}
-(a \star b)_{mn} = \sum_{i=1}^k \sum_{j=1}^k a_{mn} \cdot b_{i + m, j + n}
-\end{align*} 
-where $1 \leq m,n \leq 2k - 1$.
-The value $(a \star b)_{mn}$ quantifies the similarity between $A$ and $B$ after $B$ is translated $m$ elements horizontally and $n$ elements vertically.
-The CCF is often normalized between -1 and 1 for interpretability.
-
-The above definition of the CCF is computationally taxing, particularly for large matrices.
-The Cross-Correlation Theorem provides an equivalent expression for the CCF:
-\begin{align*}
-(A \star B) = \mathcal{F}^{-1}\left(\overline{\mathcal{F}(A)} \odot \mathcal{F}(B)\right)
-\end{align*}
-where $\mathcal{F}$ and $\mathcal{F}^{-1}$ are the discrete Fourier and inverse discrete Fourier transforms, respectively, $\overline{\mathcal{F}(A)}$ is the complex conjugate, and $\odot$ is an element-wise (Hadamard) product \citep{fft_brigham}.
-We trade the moving sum computation from the previous CCF expression for two forward Fourier transforms, an element-wise product, and an inverse Fourier transform.
-The Fast Fourier Transform (FFT) algorithm reduces the computational load considerably \citep{CooleyTukey}.
-
-We estimate the registration by calculating the maximum CCF value across a range of rotations of matrix $B$.
-Let $B_\theta$ denote $B$ rotated by an angle $\theta \in [-180^\circ,180^\circ]$ and $b_{\theta_{mn}}$ the $m,n$-th element of $B_\theta$.
-Then the estimated registration $(m^*,n^*,\theta^*)$ is: 
-
-\begin{align*}
-(m^*,n^*,\theta^*) = \arg \max_{m,n,\theta} (a \star b_\theta)_{mn}.
-\end{align*} 
-
-In practice we consider a discrete grid of rotations $\pmb{\Theta} \subset [-180^\circ,180^\circ]$.
-The registration procedure is outlined in \autoref{alg:registration}.
-We refer to the matrix that is rotated as the "target."
-The result is the estimated registration of the target matrix to the "source" matrix.
-
-It is common for cartridge case scans to contain many missing values.
-For example, the gray pixels in \autoref{fig:matchPair} represent structural values in the scan.
-The Fast Fourier Transform algorithm used in \autoref{alg:registration} does not permit missing values in $A$ or $B$.
-Thus, when calculating the CCF we impute these missing values with the average non-missing value in the scan.
-To measure the similarity between $A$ and $B$ while accounting for missingness, we calculate the correlation between the non-missing intersection of the aligned scans.
-
-### Cell-Based Registration Details
-
-Following the full-scan registration, we next perform a cell-based registration procedure.
-\citet{song_proposed_2013} points out that breech face impressions rarely appear uniformly on a cartridge case surface.
-Rather, distinguishing markings appear in specific, usually small, regions of a scan (the author refers to these as *valid correlation regions*).
-Calculating a correlation between two whole scans does not necessarily capture the similarity between these regions.
-\citet{song_proposed_2013} proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
+After registering two full scans, we perform a cell-based registration procedure.
+@song_proposed_2013 points out that breech face impressions rarely appear uniformly on a cartridge case surface.
+Rather, distinguishing markings often appear in small regions of a scan (the author refers to these as *valid correlation regions*).
+Calculating a correlation between two full scans does not necessarily capture the similarity between these regions.
+@song_proposed_2013 proposes partitioning a scan into a rectangular grid of "cells" to isolate the valid correlation regions.
 \autoref{fig:cellGridExample} shows an example of two non-match cartridge cases where the source matrix (left) is partitioned into an $8 \times 8$ grid of cells.
 
 The cell-based comparison procedure begins with selecting one of the matrices, say $A$, as the "source" matrix to be partitioned into a grid of cells.
@@ -1302,34 +1102,10 @@ The points appear randomly distributed for most of the rotation values except ar
 This is evidence to suggest that a true registration exists for these two cartridge cases, implying that they match.
 The task is to determine when cells reach a registration consensus.
 
-```{r,eval=TRUE,include=FALSE}
-if (!file.exists("data/compData.RData")) {
-  compData <- 
-    dplyr::bind_rows(map_dfr(seq(-30,30,by = 3),
-                             ~ cmcR::comparison_allTogether(reference = reference_eroded,
-                                                            target = target_eroded,
-                                                            theta = .,
-                                                            numCells = c(8,8),
-                                                            maxMissingProp = .99,
-                                                            returnX3Ps = TRUE)) %>%
-                       mutate(direction = "comparison_refToTarget"),
-                     map_dfr(seq(-30,30,by = 3),
-                             ~ cmcR::comparison_allTogether(reference = target_eroded,
-                                                            target = reference_eroded,
-                                                            theta = .,
-                                                            numCells = c(8,8),
-                                                            maxMissingProp = .99,
-                                                            returnX3Ps = TRUE)) %>%
-                       mutate(direction = "comparison_targetToRef"))
-  
-  save(compData,file = "data/compData.RData")
-}
-```
-
-```{r, include=FALSE}
+```{r estimatedTranslation-code, include=FALSE}
 load("data/compData.RData")
 plt <- compData %>%
-  select(-c(cellHeightValues,alignedTargetCell)) %>%
+  dplyr::select(-c(cellHeightValues,alignedTargetCell)) %>%
   filter(direction == "comparison_refToTarget") %>%
   filter(theta >= -3 & theta <= 9) %>%
   ggplot(aes(x=x,y,y)) +
@@ -1346,25 +1122,21 @@ ggsave(plt, filename = "figures/estimatedTranslationFaceted.png", width = 12, he
 knitr::plot_crop("figures/estimatedTranslationFaceted.png")
 ```
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="\\label{fig:estimatedTranslationFaceted} A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[m, n] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
+```{r estimatedTranslationFaceted,out.width="\\textwidth",echo=FALSE,fig.pos="htbp", fig.cap="A scatterplot where points represent the cell-wise estimated translations faceted by rotation for a matching pair of cartridge cases. As evidenced by the tight cluster in the middle facet, it appears that multiple cells agree on a translation of $[m, n] \\approx  [17,-16]$ after rotating by $3^\\circ$. Points are jittered for visibility."}
 knitr::include_graphics("figures/estimatedTranslationFaceted.png")
 ```
 
-### Registration-Based Feature Distributions
+## Registration-Based Feature Distributions
 
 \autoref{fig:registrationDensities} shows density plots of the registration-based features for 21,945 cartridge case pairs.
 The first two rows show densities for the sample mean and standard deviation of the cell-based registrations, respectively.
 The third row shows densities for the pairwise-complete correlation features.
-The standard deviation of the cell-based registrations discriminate more between match vs. non-match pairs than the sample means, which justifies their inclusion in the final feature set.
-\jz{[More to say here?]}
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:registrationDensities} Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
+```{r registrationDensities,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = 'Density plots of the Registration-Based features for 21,945 cartridge case pairs. The standard deviation of the cell-based registrations distinguish between match and non-match pairs better than the mean values.'}
 knitr::include_graphics("images/featureDensity_registration.png")
 ```
 
-## DBSCAN Algorithm Details
-
-### Density-Based Feature Distributions
+## Density-Based Feature Distributions
 
 \autoref{fig:densityDistributions} shows the distributions of the density-based features $C$, $\Delta_\theta$, and $\Delta_{\text{trans}}$. 
 The stacked bar chart in the top-left shows the proportion of comparisons where no DBSCAN cluster is identified by outcome (match or non-match).
@@ -1373,91 +1145,24 @@ In fact, there is only one non-match comparison that resulted in a DBSCAN cluste
 It's difficult to see in the plots, but the $C$ value for this non-match pair is 5 and the $\Delta_{\text{trans}}$ value is 23.9.
 As expected, $C$ tends to be relatively large for matching comparisons while $\Delta_{\theta}$ and $\Delta_{\text{trans}}$ tends to be small.
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:densityDistributions} Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left.'}
+```{r densityDistributions,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = 'Distributions of the density-based features for 21,945 cartridge case pairs. The Cluster Size and Estimated Translation Difference features may be missing (\\texttt{NA}) if no DBSCAN cluster is identified, which commonly occurs for non-matching cartridge case pairs as evidenced by the stacked bar chart in the top left. This explains the near absence of non-matching comparisons from Cluster Size and Estimated Translation Difference plots. Whether a cluster is identified for a particular comparison strongly predicts whether it is a match or a non-match, which justifies the inclusion of the cluster indicator feature $C_0$.'}
 knitr::include_graphics("images/featureDensity_densityBased.png")
 ```
 
-## Visual Diagnostic Details
 
-The Complementary Comparison Plot visualizes the similarities and differences between two scans.
-\autoref{fig:fullScan_comparisonPlot} shows a Complementary Comparison plot between scan $A$ and $B^*$ defined previously.
-The left column shows Scans $A$ and $B^*$.
-The middle column shows a filtered element-wise average between $A$ and $B^*$; namely $\mathcal{F}_{|A - B^*| < \tau}\left(\frac{1}{2}(A + B^*)\right)$.
-This filtered element-wise average emphasizes similarities between $A$ and $B^*$.
-The right column shows $\mathcal{F}_{|A - B^*| > \tau}(A)$ and $\mathcal{F}_{|A - B^*| > \tau}(B^*)$ on top and bottom, respectively.
-These plots emphasize the differences between the two scans.
-The complementary comparison plot is a powerful tool for assessing the estimated alignment and identifying similarities and differences between two surface matrices.
-We repeat this in the other comparison direction $(d = B)$ to obtain filtered matrices $\mathcal{F}_{|A^* - B| \leq \tau}\left(\frac{1}{2}(A^* + B)\right)$, $\mathcal{F}_{|A^* - B| > \tau}(A^*)$ and $\mathcal{F}_{|A^* - B| > \tau}(B)$.\footnote{As with the registration-based features, in reality these matrices should be equivalent across the two comparison directions. However, there are slight differences due to the discretely-indexed nature of the surface matrices.}
-
-```{r,cache=TRUE,include=FALSE}
-if(!file.exists("data/compData_fullScans.RData")){
-  compData_fullScans <- 
-    bind_rows(map_dfr(seq(-30,30,by = 3),
-                      ~ cmcR::comparison_allTogether(reference = reference_eroded,
-                                                     target = target_eroded,
-                                                     theta = .,
-                                                     numCells = c(1,1),
-                                                     maxMissingProp = .99,
-                                                     sideLengthMultiplier = 1.1,
-                                                     returnX3Ps = TRUE)) %>%
-                mutate(direction = "comparison_refToTarget") %>%
-                filter(pairwiseCompCor == max(pairwiseCompCor)),
-              map_dfr(seq(-30,30,by = 3),
-                      ~ cmcR::comparison_allTogether(reference = target_eroded,
-                                                     target = reference_eroded,
-                                                     theta = .,
-                                                     numCells = c(1,1),
-                                                     maxMissingProp = .99,
-                                                     sideLengthMultiplier = 1.1,
-                                                     returnX3Ps = TRUE)) %>%
-                mutate(direction = "comparison_targetToRef") %>%
-                filter(pairwiseCompCor == max(pairwiseCompCor)))
-  
-  save(compData_fullScans,file = "data/compData_fullScans.RData")
-}
-```
-
-```{r,cache=FALSE,include=FALSE}
-compPlt <- impressions::x3p_comparisonPlot(
-  x3p1 = scanA,
-  x3p2 = scanBStar,
-  plotLabels = c("Scan A","Scan B*","Filtered Element-wise\nAverage",
-                 "Scan A\nFiltered\nDifferences","Scan B*\nFiltered\nDifferences"),
-  labelSize = 2.5,
-  legendLength = grid::unit(4,"in"),
-  legendHoriz = -1.3,
-  legendQuantiles = c(0,.01,.05,.5,.95,.99,1))
-```
-
-```{r,include=FALSE}
-ggsave(plot = compPlt,filename = "figures/fullScan_comparisonPlot.png",dpi = 500)
-knitr::plot_crop("figures/fullScan_comparisonPlot.png")
-```
-
-
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:fullScan_comparisonPlot} Full scan comparison plot."}
-knitr::include_graphics("figures/fullScan_comparisonPlot.png")
-```
-
-We make a series of qualitative assumptions related to how a Complementary Comparison Plot will look for matching and non-matching cartridge case pairs.
-We develop a set of features that measure the degree to which these assumptions are met by a particular cartridge case pair.
-<!-- We now describe each feature and their associated assumptions. -->
-
-### Visual Diagnostic Feature Distributions
+## Visual Diagnostic Feature Distributions
 
 \autoref{fig:visualDiagnosticDensities} shows the distribution of the six visual diagnostic-based features.
 As expected, matching comparisons at the full-scan and cell-based levels tend to have smaller neighborhood sizes and higher correlation values on average.
 
 
-```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = '\\label{fig:visualDiagnosticDensities} Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
+```{r visualDiagnosticDensities,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap = 'Distributions of the visual diagnostic-based features for 21,945 cartridge case pairs. Matching comparisons tend to have smaller neighborhood sizes on average and higher correlation values than non-matches indicating their utility in a classifier.'}
 knitr::include_graphics("images/featureDensity_visualDiag.png")
 ```
 
 ## Model-Specific Results
 
-\autoref{tab:trainDataResults} summarizes the accuracy, true positive, and true negative rates based on the training data for the 13 binary classifier models.
-We see that the Logistic Regression (LR) and Random Forest (RF) models perform comparably, particularly having the exact same True Negative rate in the last two rows of the table.
-The CART model performs consistently worse compared to the other two models.
+\autoref{tab:trainDataResults} summarizes the accuracy, true positive, and true negative rates based on the training data for the five binary classifier models.
 
 ```{r}
 # from: https://stackoverflow.com/a/65844319/14000041
@@ -1467,72 +1172,114 @@ linesep<-function(x,y=character()){
   linesep(x[-length(x)], c(rep('',x[length(x)]-1),'\\addlinespace',y))  
 }
 
+```
+
+
+```{r trainDataResults,echo=FALSE,fig.align='center'}
+# library(kableExtra)
+
 structure(list(`Feature Set` = structure(c(1L, 2L, 2L, 3L, 3L
 ), .Label = c("$C_0$", "$C_0$~+~Registration", "All~ACES"), class = "factor"), 
     Model = structure(c(1L, 2L, 3L, 2L, 3L), .Label = c("Baseline", 
     "RF", "LR"), class = "factor"), Accuracy = c("90.47", "97.16", 
-    "97.23", "98.14", "\\textbf{98.3}"), `True Neg.` = c("90.43", 
-    "97.15", "97.23", "98.14", "\\textbf{98.3}"), `True Pos.` = c("90.77", 
+    "97.23", "98.14", "\\textbf{98.3}"), `True Negative` = c("90.43", 
+    "97.15", "97.23", "98.14", "\\textbf{98.3}"), `True Positive` = c("90.77", 
     "97.18", "97.23", "98.14", "\\textbf{98.27}")), row.names = c(NA, 
--5L), class = c("tbl_df", "tbl", "data.frame")) %>%
-  knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the training data for the 13 binary classifier models. This table shows a numeric summary of the results shown in \\autoref{fig:trainTestAccuracy}. We bold the largest values in each column for emphasis.",
-               label = "trainDataResults",
-               format = "latex",
+-5L), class = c("tbl_df", "tbl", "data.frame"))%>%
+  knitr::kable(format = "latex",
+               caption = "Accuracy, True Positive, and True Negative rates based on the training data for the 13 binary classifier models. This table shows a numeric summary of the results shown in the Results section. We bold the largest values in each column for emphasis.",
                escape = FALSE,
                align = c("l","l",
                          "r","r","r","r"),
                linesep = linesep(c(1,2,2)),
-               booktabs=TRUE)
+               booktabs = TRUE) #%>%
+  # kableExtra::kable_styling(full_width = TRUE)
 ```
 
-\autoref{tab:testDataResults} summarizes the accuracy, true positive, and true negative rates based on the test data for the 13 binary classifier models.
-We see that the Logistic Regression (LR) model performs slightly better than the Random Forest (RF) model in most cases while the CART model consistently lags behind the other two. 
+
+\autoref{tab:testDataResults} summarizes the accuracy, true positive, and true negative rates based on the test data for the 13 binary classifier models. 
+
 The true positive rates for the test data are noticeably lower to those for the training data summarized in \autoref{tab:trainDataResults}, although the true negative rates are similar.
 
-```{r}
+```{r testDataResults,echo=FALSE,fig.align='center'}
 structure(list(`Feature Set` = structure(c(1L, 2L, 2L, 3L, 3L
 ), .Label = c("$C_0$", "$C_0$~+~Registration", "All~ACES"), class = "factor"), 
     Model = structure(c(1L, 2L, 3L, 2L, 3L), .Label = c("Baseline", 
     "RF", "LR"), class = "factor"), Accuracy = c("89.44", "96.91", 
-    "96.98", "97.66", "\\textbf{97.68}"), `True Neg.` = c("89.64", 
-    "97.11", "97.21", "\\textbf{97.87}", "97.81"), `True Pos.` = c("86.82", 
+    "96.98", "97.66", "\\textbf{97.68}"), `True Negative` = c("89.64", 
+    "97.11", "97.21", "\\textbf{97.87}", "97.81"), `True Positive` = c("86.82", 
     "94.22", "93.87", "94.74", "\\textbf{95.94}")), row.names = c(NA, 
 -5L), class = c("tbl_df", "tbl", "data.frame")) %>%
-  knitr::kable(caption = "Accuracy, True Positive, and True Negative rates based on the test data for the 13 binary classifier models. This table shows a numeric summary of the results shown in \\autoref{fig:trainTestAccuracy}. We bold the largest values in each column for emphasis.",
-               label = "testDataResults",
-               format = "latex",
+  knitr::kable(format = "latex",
+               caption = "Accuracy, True Positive, and True Negative rates based on the test data for the 13 binary classifier models. This table shows a numeric summary of the results shown in the Results section. We bold the largest values in each column for emphasis.",
                escape = FALSE,
                align = c("l","l",
                          "r","r","r"),
                linesep = linesep(c(1,2,2)),
-               booktabs=TRUE)
+               booktabs = TRUE)# %>%
+  # kableExtra::kable_styling(full_width = TRUE)
 ```
 
 
+## Model Sensitivity to Parameter Choice
 
-<!-- \jz{[Write full logistic regression model here]} -->
+When selecting the optimal models presented in \autoref{fig:trainTestAccuracy}, we performed a good deal of searching across various parameter choices.
+For example, given the relative importance of the density-based features illustrated in \autoref{fig:rfVarImpPlt}, we were interested in assessing the sensitivity of the various classifier models to DBSCAN parameter choice.
+\autoref{fig:aucSensitivity} shows a heat map of AUC values for the four combinations of feature group and classifier model shown in \autoref{fig:trainTestAccuracy} across a grid of DBSCAN parameter values $\epsilon \in \{3,...,15\}$ and $minPts \in \{3,...,10\}$.
+Darker tiles correspond with higher AUC values, which in turn are associated with more preferred models.
+We draw a black square around the specific $(\epsilon, minPts)$ values resulting in the maximum AUC for each of the models (which we also show in \autoref{fig:rocPlot}.
+Interestingly, we see that all four models achieve optimum AUC for smaller values of $\epsilon$ and $minPts$.
+Larger values of $\epsilon$ will naturally lead to larger clusters as the $\epsilon$-neighborhood around each point grows.
+It makes sense then for $\epsilon$ to remain small so as to avoid the formation of false positive clusters.
+Conversely, larger values of $minPts$ will naturally lead to fewer clusters, albeit of larger size.
+The fact that the optimal $\epsilon$ and $minPts$ are both relatively small suggests that matching comparisons may not have many cells that "agree" on a registration, but the cells that do agree form a strong consensus (i.e., form tight clusters).
 
-<!-- ```{r,fig.pos="H",fig.align='center',out.extra=''} -->
-<!-- load("data/logisticRegOddsMultipliers.RData") -->
+We also note the variability in the AUC values across the DBSCAN parameter space.
+Specifically, we see that the "$C_0$ + Registration" models achieve the highest AUCs along a set of values in the bottom-left corner - where $\epsilon \approx minPts$ for $\epsilon,minPts < 10$.
+In our experimentation, we noticed that these $\epsilon, minPts$ values are also where the cluster indicator $C_0$ feature has highly-ranked importance (as is the case in \autoref{fig:varImp-dbscan}).
+Both the AUC values and the variable importance of $C_0$ decrease as either $\epsilon$ or $minPts$ increase, which indicates that the $C_0$ + Registration models rely heavily on $C_0$ to distinguish between matching and non-matching comparisons.
+Comparatively, we see that the AUC values for the "All ACES" models are more consistently high across the parameter space, indicating a robustness to parameter choice.
 
-<!-- logisticRegOddsFactors %>% -->
-<!--   slice(1:5) %>% -->
-<!--   mutate(logistOddsFactor = case_when(varName == "noClusterIndTRUE" ~ "$2.8 \\times 10^{40}$", -->
-<!--                                       varName == "differenceCor_ave" ~ "9,934.6", -->
-<!--                                       varName == "cell_theta_sd" ~ "243.7", -->
-<!--                                       varName == "clustCenterDiff" ~ "1.5", -->
-<!--                                       varName == "cell_y_sd" ~ "1.1", -->
-<!--                                       TRUE ~ "")) %>% -->
-<!--   mutate(varName = case_when(varName == "noClusterIndTRUE" ~ "Cluster Indicator", -->
-<!--                              varName == "differenceCor_ave" ~ "Full-Scan Differences Correlation", -->
-<!--                              varName == "cell_theta_sd" ~ "Cell-Based Rotation SD", -->
-<!--                              varName == "clustCenterDiff" ~ "Estimated Translation Difference", -->
-<!--                              varName == "cell_y_sd" ~ "Cell-Based Horizontal Translation SD", -->
-<!--                              TRUE ~ "")) %>% -->
-<!--   knitr::kable(col.names = c("Feature Name","Odds Multiplier"), -->
-<!--                align = c("l","r"),label = "logistOddsMult", -->
-<!--                caption = "Logistic regression-estimated multiplicative increase in the odds that a cartridge case pair is truly matching for a one unit increase in the associated feature, holding all other features constant. For brevity, we consider the top five features in terms of the odds multiplier. Note that the Cluster Indicator feature only takes on values 0 or 1.", -->
-<!--                format = "latex",booktabs = TRUE,escape = FALSE) -->
-<!-- ``` -->
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap='\\label{fig:aucSensitivity} A heat map of AUC values associated with four classifier models across a grid of values for the two DBSCAN parameter $\\epsilon$ and $minPts$. Darker tiles correspond with higher AUC. The four models are a combination of two feature groups ($C_0$ + Registration vs. All ACES) and two models (Random Forest and Logistic Regression). The "All ACES"-trained models have higher and more consistent AUCs compared to the "$C_0$ + Registration"-trained models.'}
+knitr::include_graphics("images/dbscanAUC_sensitivity.png")
+```
 
+To better understand the behavior of the AUC values in \autoref{fig:aucSensitivity}, consider \autoref{fig:varImp-dbscan} showing the Mean Gini Decrease for each of the 19 ACES features across the grid of $\epsilon \in \{3,...,15\}$ and $minPts \in \{3,...,10\}$ values.
+We see that the density Cluster Indicator $C_0$, Cluster Size $C$, and  Translation Difference $\Delta_{\text{trans}}$ have high variable importance for some combinations of $\epsilon$ and $minPts$, but are generally less consistent than the registration cell-based and full scan correlations $\overline{cor}_{\text{cell}}$ and $cor_{\text{full}}$.
+This implies that the density features can be highly informative under optimal conditions, yet quickly lose importance under sub-optimal conditions.
+In our experimentation, we noticed that other ACES features "take up the mantle" when $C_0$ or $C$ have low importance, which explains the relative stability in AUC values observed in the "All ACES"-trained models shown in \autoref{fig:aucSensitivity}.
+
+The relationship between $C_0$ and $C$ (first two plots in the first row) is noteworthy by the sharp boundary defined by the line $minPts = \epsilon$.
+Above this line, when $minPts > \epsilon$, we see that $C_0$ is considered more important than $C$.
+In other words, as the minimum size required to be classified as a cluster ($minPts$) and the neighborhood radius ($\epsilon$) both become stricter, there will naturally be fewer clusters formed.
+In these instances, knowing whether a cluster is formed is more informative than the size of that cluster.
+However, the importance of $C_0$ below the line, when $minPts < \epsilon$, is seemingly replaced by $C$ rising in importance.
+That is, when $minPts$ and $\epsilon$ are less strict, then more clusters will form and the actual size of the cluster becomes more informative than the fact that it exists.
+
+```{r,out.width="\\textwidth",echo=FALSE,fig.pos="htbp",fig.cap="\\label{fig:varImp-dbscan} A heat map of variable importance measures for the 19 features in the ACES data set across a grid of values for the two DBSCAN parameter $\\epsilon$ and $minPts$. Darker tiles correspond with higher importance. As in \\autoref{fig:rfVarImpPlt}, we visualze the importance measures on a log-transformed color scale to more clearly see variability among smaller values. We see that features like the Cell-Based Cluster Indicator $C_0$ and Cell-Based Cluster Size $C$ have inconsistent importance measures across the difference values of $\\epsilon$ and $minPts$ while the cell-based and full scan correlation features $\\overline{cor}_{\\text{cell}}$ and $cor_{\\text{full}}$ have more consistent importance."}
+knitr::include_graphics("images/varImp_dbscan.png")
+```
+
+The $\epsilon$ and $minPts$ values are not the only parameters that can be tuned.
+We also computed the ACES features using two different cell grids: $4 \times 4$ and $8 \times 8$.
+Each cell in the $4 \times 4$ grid captures a larger portion of the cartridge case's surface compared to the $8 \times 8$ grid, which would presumably be useful for the visual diagnostic-based features.
+However, the $8 \times 8$ grid has the benefit of having more cells with which to measure consensus using the registration and density-based features.
+Our experimentation showed that the $4 \times 4$ cell grid features resulted in categorically better classification results compared to the $8 \times 8$ features.
+Throughout this paper, we present the $4 \times 4$ results.
+
+One would expect that having more cells would make it easier to measure the consensus.
+However, even the density-based features, such as the cluster size feature $C$, had better separation between matching and non-matching comparisons when the $4 \times 4$ cell grid was used compared to the $8 \times 8$ grid.
+Further, performing classification using a combination of the $4 \times 4$ and $8 \times 8$ features actually led to *lower* overall test accuracy compared to just using the $4 \times 4$ grid.
+We chalk this outcome up to the specific cell-based registration procedure we used.
+Recall from image registration algorithm that we first perform a pre-registration using the full scans and a rotation grid $\pmb{\Theta}$.
+Using the full scan-estimated rotation $\theta_d^*$, we then perform the cell-based comparison procedure using a limited rotation grid $\pmb{\Theta}_d' = \{\theta_d^* - 2^\circ, \theta_d^* - 1^\circ,...,\theta_d^* + 2^\circ\}$.
+
+To save on computational time, rather than comparing each source cell to the full target scan, we compare it to a slightly larger region that is located in the same position in the target scan ($1.1 \times$ the side length of the source cell).
+Assuming the full scan registration was successful, a source cell isn't allowed to "move" very far in this region to register.
+This in contrast to, for example, the original CMC methodology proposed in @song_proposed_2013 where each source cell is compared to a region in the target scan that is much larger, 2 or 3 times the side length.
+The consequence of our implementation is that cells, even for non-matching comparisons, tend to have registration values close to the origin (i.e., no movement), and are therefore more likely to form DBSCAN clusters compared to if we used larger target regions.
+In this case, a higher number of cells actually leads to a higher chance of forming "false positive" clusters for a non-match comparison, which is exactly what we observe from the $8 \times 8$ comparisons.
+The formation of false positive clusters is far rarer in the $4 \times 4$ cell grid case.
+We hypothesize that the $8 \times 8$ cell grid results could improve if a different target region size were used.
+However, our implementation makes sense pragmatically, since the CCF computation grows exponentially with the size of the region cell or target region, and conceptually, since the full scan registration should result in a rough alignment of two matching scans before applying the cell-based comparison with a finer rotation grid.
 

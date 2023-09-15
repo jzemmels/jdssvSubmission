@@ -6,62 +6,95 @@
     url = {https://github.com/heike/x3ptools},
 }
 
-@techreport{baldwin,
-author = {Baldwin, David P and Bajic, Stanley J and Morris, Max and Zamzow, Daniel},
-title = {{A Study of False-Positive and False-Negative Error Rates in Cartridge Case Comparisons}},
-institution = {Ames Lab IA, Performing},
-year = {2014},
-address = {Fort Belvoir, VA},
-month = apr,
-publisher = {Defense Technical Information Center},
-affiliation = {AMES LAB IA, Performing},
-doi = {10.21236/ADA611807},
-rating = {0},
+@book{council_strengthening_2009,
+	address = {Washington, DC},
+	title = {Strengthening {Forensic} {Science} in the {United} {States}: {A} {Path} {Forward}},
+	isbn = {978-0-309-13130-8},
+	publisher = {The National Academies Press},
+	author = {{National Research Council}},
+	year = {2009},
+	url = {https://doi.org/10.17226/12589}
 }
 
-@article{swofford,
-	title = {{Implementation of algorithms in pattern \& impression evidence: A responsible and practical roadmap}},
-	author = {Swofford, Henry and Champod, Christophe},
-	year = {2021},
-	date = {2021},
-	journal = {Forensic Science International: Synergy},
-	pages = {100142},
-	volume = {3},
-	doi = {10.1016/j.fsisyn.2021.100142},
-	url = {http://dx.doi.org/10.1016/j.fsisyn.2021.100142},
-	langid = {en}
+@article{pcast2016,
+  author = {{President’s Council of Advisors on Sci. \& Tech.}},
+  year = {2016},
+  title = {Forensic Science in Criminal Courts: Ensuring Scientific Validity of Feature-Comparison Methods},
+  publisher = {{Executive Office of The President’s Council of Advisors on Science and Technology}},
+  url = {https://obamawhitehouse.archives.gov/sites/default/files/microsites/ostp/PCAST/pcast_forensic_science_report_final.pdf}
 }
 
-@book{nas2009,
-  title={Strengthening forensic science in the United States: a path forward},
-  author={{National Research Council}},
-  year={2009},
-  publisher={The National Academies Press},
-  address = {Washington, D.C.}
+@techreport{Baldwin2014,
+  doi = {10.21236/ada611807},
+  note = {\url{https://doi.org/10.21236/ada611807}},
+  year = {2014},
+  month = apr,
+  publisher = {Defense Technical Information Center},
+  author = {David P. Baldwin and Stanley J. Bajic and Max Morris and Daniel Zamzow},
+  title = {A Study of False-Positive and False-Negative Error Rates in Cartridge Case Comparisons}
 }
 
-@techreport{pcast,
-	author = {{PCAST}, {President’s Council of Advisors on Science and Technology}},
-	title = {Forensic Science in Criminal Courts: Ensuring Scientific Validity of Feature-comparison Methods},
-	type = {},
-	institution = {Executive Office of The President’s Council of Advisors on Science and Technology, Washington DC},
-	year = {2016},
-	OPTurl = {https://www.whitehouse.gov/administration/eop/ostp/pcast/docsreports}
+@article{Swofford2021,
+  note =  {\url{https://doi.org/10.1016/j.fsisyn.2021.100142}},
+  url = {https://doi.org/10.1016/j.fsisyn.2021.100142},
+  year = {2021},
+  publisher = {Elsevier {BV}},
+  volume = {3},
+  pages = {100142},
+  author = {H. Swofford and C. Champod},
+  title = {Implementation of algorithms in pattern {\&} impression evidence: A responsible and practical roadmap},
+  journal = {Forensic Science International: Synergy}
 }
 
-@article{aoas,
- ISSN = {19326157},
- URL = {http://www.jstor.org/stable/26362188},
- abstract = {In 2009, the National Academy of Sciences published a report questioning the scientific validity of many forensic methods including firearm examination. Firearm examination is a forensic tool used to help the court determine whether two bullets were fired from the same gun barrel. During the firing process, rifling, manufacturing defects, and impurities in the barrel create striation marks on the bullet. Identifying these striation markings in an attempt to match two bullets is one of the primary goals of firearm examination. We propose an automated framework for the analysis of the 3D surface measurements of bullet land impressions, which transcribes the individual characteristics into a set of features that quantify their similarities. This makes identification of matches easier and allows for a quantification of both matches and matchability of barrels. The automatic matching routine we propose manages to (a) correctly identify land impressions (the surface between two bullet groove impressions) with too much damage to be suitable for comparison, and (b) correctly identify all 10,384 land-to-land matches of the James Hamby study},
- author = {Eric Hare and Heike Hofmann and Alicia Carriquiry},
- journal = {The Annals of Applied Statistics},
- number = {4},
- pages = {2332--2356},
- publisher = {Institute of Mathematical Statistics},
- title = {AUTOMATIC MATCHING OF BULLET LAND IMPRESSIONS},
- urldate = {2022-11-07},
- volume = {11},
- year = {2017}
+@Manual{Rlanguage,
+    title = {R: A Language and Environment for Statistical Computing},
+    author = {{R Core Team}},
+    organization = {R Foundation for Statistical Computing},
+    address = {Vienna, Austria},
+    year = {2017},
+    url = {https://www.R-project.org/},
+  }
+
+@inproceedings{Ester1996,
+note = {\url{doi.org/10.5555/3001460.3001507}},
+author = {Ester, Martin and Kriegel, Hans-Peter and Sander, J\"{o}rg and Xu, Xiaowei},
+title = {A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise},
+year = {1996},
+publisher = {AAAI Press},
+abstract = {Clustering algorithms are attractive for the task of class identification in spatial databases. However, the application to large spatial databases rises the following requirements for clustering algorithms: minimal requirements of domain knowledge to determine the input parameters, discovery of clusters with arbitrary shape and good efficiency on large databases. The well-known clustering algorithms offer no solution to the combination of these requirements. In this paper, we present the new clustering algorithm DBSCAN relying on a density-based notion of clusters which is designed to discover clusters of arbitrary shape. DBSCAN requires only one input parameter and supports the user in determining an appropriate value for it. We performed an experimental evaluation of the effectiveness and efficiency of DBSCAN using synthetic data and real data of the SEQUOIA 2000 benchmark. The results of our experiments demonstrate that (1) DBSCAN is significantly more effective in discovering clusters of arbitrary shape than the well-known algorithm CLAR-ANS, and that (2) DBSCAN outperforms CLARANS by a factor of more than 100 in terms of efficiency.},
+booktitle = {Proceedings of the Second International Conference on Knowledge Discovery and Data Mining},
+pages = {226–231},
+numpages = {6},
+keywords = {efficiency on large spatial databases, clustering algorithms, handling nlj4-275oise, arbitrary shape of clusters},
+location = {Portland, Oregon},
+series = {KDD'96}
+}
+
+@article{hesselink_concurrent_2001,
+  title = {Concurrent determination of connected components},
+  volume = {41},
+  issn = {01676423},
+  url = {https://doi.org/10.1016/S0167-6423(01)00007-7},
+  language = {en},
+  number = {2},
+  journal = {Science of Computer Programming},
+  author = {Hesselink, Wim H. and Meijster, Arnold and Bron, Coenraad},
+  month = oct,
+  year = {2001},
+  pages = {173--194}
+}
+
+@article{hare_automatic_2016,
+	title = {Automatic {Matching} of {Bullet} {Land} {Impressions}},
+	url = {http://arxiv.org/abs/1601.05788},
+	language = {en},
+	journal = {The Annals of Applied Statistics},
+	author = {Hare, Eric and Hofmann, Heike and Carriquiry, Alicia},
+	volume = {11},
+	number = {4},
+	year = {2017},
+	keywords = {Statistics - Applications},
+		pages = {2332--2356},
 }
 
 @article{Park2019,
